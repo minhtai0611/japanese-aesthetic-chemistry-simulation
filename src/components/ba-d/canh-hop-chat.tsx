@@ -1,12 +1,27 @@
 "use client";
 
-import { Suspense, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
 import type { HopChat3D } from "@/lib/pubchem";
+
+/**
+ * three.js's WebGLRenderer.dispose() does not release the GPU-side context —
+ * only forceContextLoss() does. Canvas remounts on every compound switch
+ * (key={duLieu.cid} below), so without this the browser's ~16-context cap
+ * gets exhausted after a handful of switches, forcing an older context to
+ * lose itself ("THREE.WebGLRenderer: Context Lost.").
+ */
+function GiaiPhongContext() {
+  const { gl } = useThree();
+  useEffect(() => {
+    return () => gl.forceContextLoss();
+  }, [gl]);
+  return null;
+}
 
 function TrucXoay({ duLieu, tuXoay, banMau }: {
   duLieu: HopChat3D;
@@ -46,6 +61,7 @@ export default function CanhHopChat({
         <directionalLight position={[6, 8, 5]} intensity={1.5} color="#fff3e2" />
         <directionalLight position={[-6, -4, -6]} intensity={0.5} color="#7fa0d8" />
         <pointLight position={[0, -4, 4]} intensity={10} color="#d63b1f" distance={20} />
+        <GiaiPhongContext />
         <Suspense fallback={null}>
           <TrucXoay duLieu={duLieu} tuXoay={tuXoay} banMau={banMau} />
           {/* vòng đài */}
