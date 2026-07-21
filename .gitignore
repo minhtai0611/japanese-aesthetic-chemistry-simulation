@@ -22,12 +22,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Serena manages its own nested .serena/.gitignore (ignores cache/, project.local.yml)
-# .serena/project.yml itself IS committed — it's the shared project config
-
-# Claude Code local settings
-.claude/settings.local.json
-
 .vercel
 .env*
 !.env.example
+
+# AI assistant tooling — local-only, never pushed to the remote repo
+CLAUDE.md
+AGENTS.md
+.mcp.json
+.claude/
+.serena/
