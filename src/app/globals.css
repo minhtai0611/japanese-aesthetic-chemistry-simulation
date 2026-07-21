@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+@theme {
+  /* Bảng màu sumi–washi: mực tàu, giấy dó, son vermillion, kim */
+  --color-sumi: #0b0a08;
+  --color-sumi-nhat: #14110c;
+  --color-sumi-vien: #221d15;
+  --color-washi: #f2ead9;
+  --color-washi-mo: #cfc6b2;
+  --color-shu: #d63b1f;
+  --color-shu-sang: #ff5b36;
+  --color-kin: #c9a35a;
+  --color-ai: #3d5f9e;
+  --color-tokiwa: #3e7d6b;
+
+  --font-sans: var(--font-be-vietnam), "Be Vietnam Pro", system-ui, sans-serif;
+  --font-display: var(--font-playfair), "Playfair Display", Georgia, serif;
+  --font-mono: var(--font-plex), "IBM Plex Mono", ui-monospace, monospace;
+
+  --animate-truot-ngang: truot-ngang 42s linear infinite;
+  --animate-xoay-cham: xoay-cham 26s linear infinite;
+  --animate-thang-phoi: thang-phoi 7s ease-in-out infinite;
+  --animate-hoi-tho: hoi-tho 6s ease-in-out infinite;
+
+  @keyframes truot-ngang {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes xoay-cham {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes thang-phoi {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+  @keyframes hoi-tho {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.035); }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-sumi);
+  color: var(--color-washi);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-shu);
+  color: var(--color-washi);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0b0a08; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(#d63b1f, #7c2413);
+  border-radius: 8px;
+  border: 2px solid #0b0a08;
+}
+
+/* ---- Hạt nhiễu giấy dó phủ toàn trang ---- */
+.hat-ro::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: hat-ro-nhay 0.9s steps(3) infinite;
+}
+@keyframes hat-ro-nhay {
+  0% { transform: translate(0, 0); }
+  33% { transform: translate(-2%, 1%); }
+  66% { transform: translate(1%, -2%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* ---- Nền song shoji: đường kẻ mảnh như khung cửa ---- */
+.nen-shoji {
+  background-image:
+    linear-gradient(to right, rgba(242, 234, 217, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(242, 234, 217, 0.035) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+/* ---- Họa tiết sóng xanh seigaiha (SVG nội tuyến) ---- */
+.hoa-van-song {
+  background-image: url("data:image/svg+xml,%3Csvg width='96' height='48' viewBox='0 0 96 48' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23f2ead9' stroke-opacity='0.07'%3E%3Cpath d='M0 48A48 48 0 0 1 96 48'/%3E%3Cpath d='M12 48A36 36 0 0 1 84 48'/%3E%3Cpath d='M24 48A24 24 0 0 1 72 48'/%3E%3Cpath d='M-48 48A48 48 0 0 1 48 48' transform='translate(0,-24)'/%3E%3Cpath d='M48 48A48 48 0 0 1 144 48' transform='translate(0,-24)'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 96px 48px;
+}
+
+/* ---- Chữ dọc kiểu Nhật ---- */
+.chu-doc {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0.35em;
+}
+
+/* ---- Đường kim tinh tế ---- */
+.vach-kin {
+  background: linear-gradient(90deg, transparent, var(--color-kin), transparent);
+  height: 1px;
+}
+
+/* ---- Chỉ mục chân trang phần ---- */
+.chi-muc {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+}
+
+/* ---- Thẻ khắc ---- */
+.the-khac {
+  background: linear-gradient(160deg, rgba(242, 234, 217, 0.045), rgba(242, 234, 217, 0.012));
+  border: 1px solid rgba(242, 234, 217, 0.09);
+  backdrop-filter: blur(6px);
+}
+
+.the-khac:hover {
+  border-color: rgba(214, 59, 31, 0.45);
+}
+
+/* ---- Nút huyên (ensō) ---- */
+.nut-chu {
+  position: relative;
+  isolation: isolate;
+}
+.nut-chu::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: 9999px;
+  background: conic-gradient(from var(--goc, 0deg), var(--color-shu), transparent 30%, var(--color-shu) 55%, transparent 80%, var(--color-shu));
+  animation: xoay-cham 5s linear infinite;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.nut-chu:hover::before { opacity: 1; }
+@property --goc { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
+/* ---- Đường gạch chân hoạt cảnh cho liên kết ---- */
+.gach-dong {
+  background-image: linear-gradient(var(--color-shu-sang), var(--color-shu-sang));
+  background-size: 0% 1.5px;
+  background-repeat: no-repeat;
+  background-position: left 96%;
+  transition: background-size 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gach-dong:hover { background-size: 100% 1.5px; }
+
+/* ---- Mờ chuyển tiếp khi tải phần 3D ---- */
+.mo-dan { animation: mo-dan 0.8s ease-out both; }
+@keyframes mo-dan {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+input[type="range"] {
+  accent-color: var(--color-shu);
+}

@@ -1,0 +1,317 @@
+/**
+ * LỚP DỮ LIỆU THẬT — PUBCHEM PUG-REST (NCBI, công cộng, không cần khóa API).
+ *
+ * TUYÊN BỐ MINH BẠCH: website này KHÔNG chế tác số liệu hóa học.
+ *  - Bảng tuần hoàn 118 nguyên tố : /rest/pug/periodictable/JSON
+ *  - Thuộc tính hợp chất          : /rest/pug/compound/.../property/...
+ *  - Tọa độ không gian 3 chiều     : /rest/pug/compound/.../JSON?record_type=3d
+ *  - Gợi ý tên                     : /rest/autocomplete/compound/{từ}/JSON
+ * Các phép mô phỏng (pH, pha loãng, pha vật chất…) là toán vật lý/hóa học
+ * tính TRÊN nền số liệu API này (Kw, n = m/M, C₁V₁ = C₂V₂, nhiệt độ chuyển pha).
+ */
+
+import { BO_TRI, TEN_VI, DICH_GIA_DINH } from "./nguyen-to";
+
+const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
+const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
+
+async function goiPug<T>(duong: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${PUG}${duong}`, {
+      next: { revalidate: TUAN },
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { Fault?: unknown } & T;
+    if (json && typeof json === "object" && "Fault" in json) return null;
+    return json;
+  } catch {
+    return null;
+  }
+}
+
+/* ---------------------------------- NGUYÊN TỐ ---------------------------------- */
+
+export interface NguyenTo {
+  so: number;
+  kyHieu: string;
+  tenEn: string;
+  tenVi: string;
+  khoiLuong: number | null;        // u
+  mauCPK: string;                  // "#RRGGBB"
+  cauHinhElectron: string;
+  doAmDien: number | null;         // Pauling
+  banKinhPm: number | null;        // pm
+  nangLuongIonHoa: number | null;  // eV
+  aiLucElectron: number | null;    // eV
+  cacMucOxiHoa: string;
+  trangThaiGoc: string;            // dữ liệu nguyên gốc từ API
+  trangThai: "ran" | "long" | "khi" | "chua-xac-dinh";
+  nongChayK: number | null;        // K
+  soiK: number | null;             // K
+  matDo: number | null;            // g/cm³
+  giaDinhEn: string;
+  giaDinhVi: string;
+  namPhatHien: string;
+  nhom: number;
+  chuKi: number | null;
+  chuKiHienThi: number;
+  khoi: "s" | "p" | "d" | "f";
+  lopVo: number[];                 // số e ở mỗi lớp n=1..7 (từ cấu hình API)
+}
+
+interface BangPeriodic {
+  Table: {
+    Columns: { Column: string[] };
+    Row: { Cell: string[] }[];
+  };
+}
+
+function soHoacNull(v: string): number | null {
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function trangThaiCua(goc: string): NguyenTo["trangThai"] {
+  const g = goc.toLowerCase();
+  if (g.includes("solid")) return "ran";
+  if (g.includes("liquid")) return "long";
+  if (g.includes("gas")) return "khi";
+  return "chua-xac-dinh";
+}
+
+/** Mở rộng cấu hình electron dạng "[Xe]4f14 5d10 6s2" thành số e trên từng lớp n */
+export function lopVoTuCauHinh(cauHinh: string, theoKyHieu: Map<string, NguyenTo>): number[] {
+  const lop = new Array<number>(7).fill(0);
+  const moRong = (cfg: string, chieuSau: number) => {
+    if (chieuSau > 4 || !cfg) return;
+    const phanConLai = cfg.replace(/\[([A-Za-z]{1,2})\]/g, (_, k: string) => {
+      const loi = theoKyHieu.get(k);
+      // Thêm khoảng trắng để token không bị dính liền thành "1s22s2" → sai số electron
+      return loi ? `${loi.cauHinhElectron} ` : "";
+    });
+    if (phanConLai.includes("[")) {
+      moRong(phanConLai, chieuSau + 1);
+      return;
+    }
+    const bm = /(\d)([spdf])(\d+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = bm.exec(phanConLai))) {
+      const n = Number(m[1]);
+      if (n >= 1 && n <= 7) lop[n - 1] += Number(m[3]);
+    }
+  };
+  moRong(cauHinh, 0);
+  return lop.filter((x) => x > 0);
+}
+
+let demNguyenTo = 0;
+
+export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
+  const data = await goiPug<BangPeriodic>("/pug/periodictable/JSON");
+  if (!data?.Table?.Row?.length) return [];
+
+  const cot = data.Table.Columns.Column;
+  const viTri = (ten: string) => cot.indexOf(ten);
+
+  const tho = data.Table.Row.map((hang) => {
+    const c = hang.Cell;
+    const so = Number(c[viTri("AtomicNumber")]);
+    const boTri = BO_TRI.get(so) ?? { nhom: 0, chuKiHienThi: 0, chuKi: null, khoi: "s" as const };
+    const giaDinh = c[viTri("GroupBlock")] ?? "";
+    return {
+      so,
+      kyHieu: c[viTri("Symbol")] ?? "",
+      tenEn: c[viTri("Name")] ?? "",
+      tenVi: TEN_VI[so] ?? c[viTri("Name")] ?? "",
+      khoiLuong: soHoacNull(c[viTri("AtomicMass")]),
+      mauCPK: `#${(c[viTri("CPKHexColor")] || "C8C4BC").padStart(6, "F")}`,
+      cauHinhElectron: c[viTri("ElectronConfiguration")] ?? "",
+      doAmDien: soHoacNull(c[viTri("Electronegativity")]),
+      banKinhPm: soHoacNull(c[viTri("AtomicRadius")]),
+      nangLuongIonHoa: soHoacNull(c[viTri("IonizationEnergy")]),
+      aiLucElectron: soHoacNull(c[viTri("ElectronAffinity")]),
+      cacMucOxiHoa: c[viTri("OxidationStates")] || "—",
+      trangThaiGoc: c[viTri("StandardState")] ?? "",
+      trangThai: trangThaiCua(c[viTri("StandardState")] ?? ""),
+      nongChayK: soHoacNull(c[viTri("MeltingPoint")]),
+      soiK: soHoacNull(c[viTri("BoilingPoint")]),
+      matDo: soHoacNull(c[viTri("Density")]),
+      giaDinhEn: giaDinh,
+      giaDinhVi: DICH_GIA_DINH[giaDinh] ?? giaDinh,
+      namPhatHien: c[viTri("YearDiscovered")] || "—",
+      nhom: boTri.nhom,
+      chuKi: boTri.chuKi,
+      chuKiHienThi: boTri.chuKiHienThi,
+      khoi: boTri.khoi,
+      lopVo: [] as number[],
+    };
+  });
+
+  const theoKyHieu = new Map(tho.map((n) => [n.kyHieu, n]));
+  tho.forEach((n) => (n.lopVo = lopVoTuCauHinh(n.cauHinhElectron, theoKyHieu)));
+  demNguyenTo = tho.length;
+  return tho;
+}
+
+export function soLuongNguyenToDaTai() {
+  return demNguyenTo;
+}
+
+export async function layNguyenTheoKyHieu(kyHieu: string): Promise<NguyenTo | null> {
+  const tatCa = await layTatCaNguyenTo();
+  const k = kyHieu.toLowerCase();
+  return tatCa.find((n) => n.kyHieu.toLowerCase() === k) ?? null;
+}
+
+/* ---------------------------------- HỢP CHẤT ----------------------------------- */
+
+export interface HopChat {
+  cid: number;
+  tenTruyVan: string;
+  congThuc: string | null;
+  khoiLuongMol: number | null; // g/mol
+  khoiLuongExact: number | null;
+  iupac: string | null;
+  smiles: string | null;
+  xLogP: number | null;
+  tpsa: number | null;
+  hbd: number | null;
+  hba: number | null;
+  lienKetXoay: number | null;
+  doPhucTap: number | null;
+}
+
+interface BangThuocTinh {
+  PropertyTable: {
+    Properties: {
+      CID: number;
+      MolecularFormula?: string;
+      MolecularWeight?: string;
+      ExactMass?: string;
+      IUPACName?: string;
+      ConnectivitySMILES?: string;
+      SMILES?: string;
+      XLogP?: number;
+      TPSA?: number;
+      HBondDonorCount?: number;
+      HBondAcceptorCount?: number;
+      RotatableBondCount?: number;
+      Complexity?: number;
+    }[];
+  };
+}
+
+export async function layHopChat(ten: string): Promise<HopChat | null> {
+  const duLieu = await goiPug<BangThuocTinh>(
+    `/pug/compound/name/${encodeURIComponent(ten.trim())}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
+  );
+  const p = duLieu?.PropertyTable?.Properties?.[0];
+  if (!p) return null;
+  return {
+    cid: p.CID,
+    tenTruyVan: ten,
+    congThuc: p.MolecularFormula ?? null,
+    khoiLuongMol: soHoacNull(p.MolecularWeight ?? ""),
+    khoiLuongExact: soHoacNull(p.ExactMass ?? ""),
+    iupac: p.IUPACName ?? null,
+    smiles: p.ConnectivitySMILES ?? p.SMILES ?? null,
+    xLogP: p.XLogP ?? null,
+    tpsa: p.TPSA ?? null,
+    hbd: p.HBondDonorCount ?? null,
+    hba: p.HBondAcceptorCount ?? null,
+    lienKetXoay: p.RotatableBondCount ?? null,
+    doPhucTap: p.Complexity ?? null,
+  };
+}
+
+/* ------------------------------ HỢP CHẤT 3 CHIỀU ------------------------------- */
+
+export interface NguyenTu3D {
+  so: number; // số hiệu nguyên tử
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface LienKet3D {
+  a: number; // chỉ số nguyên tử 1
+  b: number; // chỉ số nguyên tử 2
+  bac: number; // bậc liên kết 1/2/3
+}
+
+export interface HopChat3D {
+  cid: number;
+  tenTruyVan: string;
+  congThuc: string | null;
+  khoiLuongMol: number | null;
+  nguyenTu: NguyenTu3D[];
+  lienKet: LienKet3D[];
+}
+
+interface BanGhi3D {
+  PC_Compounds: {
+    id: { id: { cid: number } };
+    atoms: { aid: number[]; element: number[] };
+    bonds?: { aid1: number[]; aid2: number[]; order: number[] };
+    coords?: { conformers?: { x: number[]; y: number[]; z: number[] }[] }[];
+  }[];
+}
+
+export async function layHopChat3D(ten: string): Promise<HopChat3D | null> {
+  const tenSach = ten.trim().slice(0, 120);
+  const [banGhi, thuocTinh] = await Promise.all([
+    goiPug<BanGhi3D>(
+      `/pug/compound/name/${encodeURIComponent(tenSach)}/JSON?record_type=3d`,
+    ),
+    layHopChat(tenSach),
+  ]);
+  const pc = banGhi?.PC_Compounds?.[0];
+  const conformer = pc?.coords?.[0]?.conformers?.[0];
+  if (!pc || !conformer) return null;
+
+  const { x = [], y = [], z = [] } = conformer;
+  // Đưa phân tử về tâm khối hình học
+  const n = pc.atoms.element.length;
+  const tx = x.reduce((a, b) => a + b, 0) / n;
+  const ty = y.reduce((a, b) => a + b, 0) / n;
+  const tz = z.reduce((a, b) => a + b, 0) / n;
+
+  const nguyenTu: NguyenTu3D[] = pc.atoms.element.map((so, i) => ({
+    so,
+    x: (x[i] - tx) * 0.62,
+    y: (y[i] - ty) * 0.62,
+    z: (z[i] - tz) * 0.62,
+  }));
+
+  const lienKet: LienKet3D[] = (pc.bonds?.aid1 ?? []).map((a1, i) => ({
+    a: a1 - 1,
+    b: (pc.bonds?.aid2 ?? [])[i] - 1,
+    bac: (pc.bonds?.order ?? [])[i] || 1,
+  }));
+
+  return {
+    cid: pc.id.id.cid,
+    tenTruyVan: ten,
+    congThuc: thuocTinh?.congThuc ?? null,
+    khoiLuongMol: thuocTinh?.khoiLuongMol ?? null,
+    nguyenTu,
+    lienKet,
+  };
+}
+
+/* ----------------------------------- GỢI Ý ------------------------------------- */
+
+interface GoiYJson {
+  dictionary_terms?: { compound?: string[] };
+}
+
+export async function layGoiY(tu: string): Promise<string[]> {
+  const q = tu.trim().replace(/[/\\]/g, "").slice(0, 60);
+  if (q.length < 2) return [];
+  const data = await goiPug<GoiYJson>(
+    `/autocomplete/compound/${encodeURIComponent(q)}/JSON?limit=8`,
+  );
+  return data?.dictionary_terms?.compound ?? [];
+}
