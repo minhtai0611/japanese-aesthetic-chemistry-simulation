@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
@@ -10,10 +11,9 @@ import type { HopChat3D } from "@/lib/pubchem";
 
 /**
  * three.js's WebGLRenderer.dispose() does not release the GPU-side context —
- * only forceContextLoss() does. Canvas remounts on every compound switch
- * (key={duLieu.cid} below), so without this the browser's ~16-context cap
- * gets exhausted after a handful of switches, forcing an older context to
- * lose itself ("THREE.WebGLRenderer: Context Lost.").
+ * only forceContextLoss() does. Without this, unmounting CanhHopChat (e.g.
+ * navigating away, or a failed lookup clearing the compound) would leak the
+ * context until GC, risking the browser's ~16-context cap on repeated visits.
  */
 function GiaiPhongContext() {
   const { gl } = useThree();
@@ -32,10 +32,53 @@ function TrucXoay({ duLieu, tuXoay, banMau }: {
   useFrame((_s, dt) => {
     if (tuXoay && ref.current) ref.current.rotation.y += dt * 0.3;
   });
+  // Molecule đổi (cid mới) — bắt đầu lại từ góc quay 0 thay vì kế thừa góc cũ.
+  useEffect(() => {
+    if (ref.current) ref.current.rotation.y = 0;
+  }, [duLieu.cid]);
   return (
     <group ref={ref}>
       <MatPhanTu duLieu={duLieu} banMau={banMau} phatSang={0.42} />
     </group>
+  );
+}
+
+/**
+ * Canvas được giữ nguyên (không remount) khi đổi hợp chất — camera/OrbitControls
+ * không tự biết phải "lấy khung hình lại" cho phân tử mới, nên phải tự tay
+ * đặt lại vị trí camera + mục tiêu điều khiển mỗi khi cid đổi.
+ */
+function DongBoKhungHinh({
+  cid,
+  banKinh,
+  khoangCach,
+}: {
+  cid: number | string;
+  banKinh: number;
+  khoangCach: number;
+}) {
+  const { camera } = useThree();
+  const dieuKhien = useRef<OrbitControlsImpl>(null);
+
+  useEffect(() => {
+    camera.position.set(0, banKinh * 0.35, khoangCach);
+    camera.lookAt(0, 0, 0);
+    if (camera instanceof THREE.PerspectiveCamera) camera.updateProjectionMatrix();
+    dieuKhien.current?.target.set(0, 0, 0);
+    dieuKhien.current?.update();
+    // Chỉ đặt lại khung hình khi phân tử thực sự đổi (cid mới), không phải mỗi lần render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cid]);
+
+  return (
+    <OrbitControls
+      ref={dieuKhien}
+      enableDamping
+      dampingFactor={0.08}
+      enablePan={false}
+      minDistance={khoangCach * 0.45}
+      maxDistance={khoangCach * 2.2}
+    />
   );
 }
 
@@ -49,11 +92,14 @@ export default function CanhHopChat({
   const banMau = useBanMauNguyenTo();
   const banKinh = useMemo(() => banKinhBaoQuanh(duLieu), [duLieu]);
   const khoangCach = Math.min(Math.max(banKinh * 2.5, 4.5), 26);
+  // Vị trí camera ban đầu (Canvas chỉ mount MỘT LẦN) — các lần đổi phân tử sau đó
+  // do DongBoKhungHinh tự cập nhật lại, không cần Canvas remount.
+  const camBanDau = useRef({ position: [0, banKinh * 0.35, khoangCach] as [number, number, number], fov: 44 });
 
   return (
-    <div className="absolute inset-0 mo-dan" key={duLieu.cid}>
+    <div className="absolute inset-0 mo-dan">
       <Canvas
-        camera={{ position: [0, banKinh * 0.35, khoangCach], fov: 44 }}
+        camera={camBanDau.current}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
@@ -74,17 +120,13 @@ export default function CanhHopChat({
             <meshBasicMaterial color="#f2ead9" transparent opacity={0.03} />
           </mesh>
         </Suspense>
-        <OrbitControls
-          enableDamping
-          dampingFactor={0.08}
-          enablePan={false}
-          minDistance={khoangCach * 0.45}
-          maxDistance={khoangCach * 2.2}
-        />
+        <DongBoKhungHinh cid={duLieu.cid} banKinh={banKinh} khoangCach={khoangCach} />
         <EffectComposer>
           <Bloom mipmapBlur intensity={0.55} luminanceThreshold={0.24} luminanceSmoothing={0.4} radius={0.7} />
         </EffectComposer>
       </Canvas>
+      {/* Phủ mờ dần mỗi lần đổi phân tử — chỉ là div thường, không phải WebGL, nên remount vô hại */}
+      <div key={duLieu.cid} className="pointer-events-none absolute inset-0 bg-sumi mo-dan-nguoc" />
     </div>
   );
 }

@@ -165,6 +165,13 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* ---- Lớp phủ mờ dần khi đổi phân tử (Canvas WebGL giữ nguyên, không remount) ---- */
+.mo-dan-nguoc { animation: mo-dan-nguoc 0.6s ease-out both; }
+@keyframes mo-dan-nguoc {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 input[type="range"] {
   accent-color: var(--color-shu);
 }
