@@ -119,6 +119,20 @@ function PhanTuHero() {
   );
 }
 
+/**
+ * three.js's WebGLRenderer.dispose() does not release the GPU-side context —
+ * only forceContextLoss() does. Next.js unmounts this Canvas on navigation
+ * away from "/", so without this, rapid navigation can leak contexts toward
+ * the browser's ~16-context cap ("THREE.WebGLRenderer: Context Lost.").
+ */
+function GiaiPhongContext() {
+  const { gl } = useThree();
+  useEffect(() => {
+    return () => gl.forceContextLoss();
+  }, [gl]);
+  return null;
+}
+
 /* ------------------------------- Camera theo chuột ---------------------------- */
 function CameraRu() {
   const { camera, pointer } = useThree();
@@ -149,6 +163,7 @@ export default function CanhHero() {
           <PhanTuHero />
         </Suspense>
         <CameraRu />
+        <GiaiPhongContext />
         <EffectComposer>
           <Bloom mipmapBlur intensity={0.85} luminanceThreshold={0.18} luminanceSmoothing={0.34} radius={0.75} />
           <Vignette eskil={false} offset={0.24} darkness={0.72} />
