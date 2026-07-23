@@ -5,13 +5,13 @@ import HienDan from "@/components/hien-dan";
 import { layTatCaNguyenTo } from "@/lib/pubchem";
 
 export const metadata: Metadata = {
-  title: "Bảng tuần hoàn 118 nguyên tố — dữ liệu sống từ PubChem",
+  title: "Bảng tuần hoàn 118 nguyên tố — dữ liệu từ PubChem",
   description:
-    "Bảng tuần hoàn tương tác bằng tiếng Việt: 118 nguyên tố với khối lượng nguyên tử, điểm nóng chảy, điểm sôi, độ âm điện, cấu hình electron — toàn bộ truy vấn trực tiếp từ PubChem PUG-REST. Lọc theo khối s/p/d/f, trạng thái vật chất, tìm kiếm tức thì.",
+    "Bảng tuần hoàn tương tác bằng tiếng Việt: 118 nguyên tố với khối lượng nguyên tử, điểm nóng chảy, điểm sôi, độ âm điện, cấu hình electron — toàn bộ đồng bộ từ PubChem PUG-REST, cache có kiểm soát. Lọc theo khối s/p/d/f, trạng thái vật chất, tìm kiếm tức thì.",
   alternates: { canonical: "/bang-tuan-hoan" },
   openGraph: {
     title: "Bảng tuần hoàn 118 nguyên tố — KAGAKU",
-    description: "Bảng tuần hoàn tương tác tiếng Việt với dữ liệu sống từ PubChem PUG-REST.",
+    description: "Bảng tuần hoàn tương tác tiếng Việt với dữ liệu đồng bộ từ PubChem PUG-REST.",
   },
 };
 
@@ -27,9 +27,9 @@ export default async function TrangBangTuanHoan() {
           <br /> không phải tấm ảnh chết
         </h1>
         <p className="mt-6 max-w-2xl leading-relaxed text-washi-mo">
-          Từng ô dưới đây là một lễ truy vấn tới hạ tầng khoa học công cộng của nhân loại —
-          PubChem, nơi cất giữ hơn một thế kỷ tri thức đo lường. Chạm vào một nguyên tố
-          để mở hồ sơ đầy đủ của nó.
+          Từng ô dưới đây đồng bộ từ PubChem — hạ tầng khoa học công cộng của nhân loại,
+          nơi cất giữ hơn một thế kỷ tri thức đo lường — và được lưu đệm có kiểm soát thay vì
+          truy vấn lại mỗi lượt xem. Chạm vào một nguyên tố để mở hồ sơ đầy đủ của nó.
         </p>
       </HienDan>
 

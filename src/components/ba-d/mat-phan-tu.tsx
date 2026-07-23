@@ -105,8 +105,7 @@ export function MatPhanTu({
       }
     }
     return ra;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(nguyenTu), JSON.stringify(lienKet), banMau]);
+  }, [nguyenTu, lienKet, banMau]);
 
   const khungBanKinh = useMemo(() => {
     const m = new Map<number, number>();

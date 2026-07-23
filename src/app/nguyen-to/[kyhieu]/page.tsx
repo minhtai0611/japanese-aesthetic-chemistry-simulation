@@ -76,14 +76,18 @@ export default async function TrangNguyenTo({ params }: ThuocTinhTrang) {
   const sau = tatCa.find((x) => x.so === n.so + 1);
   const mauKhoi = MAU_KHOI[n.khoi];
 
+  const laDuDoanTrangThai = n.trangThaiCertainty === "du-doan";
+  const laDuDoanCauHinh = n.cauHinhElectronCertainty === "du-doan";
+  const nhanTrangThai = n.trangThai === "ran" ? "Rắn (STP)" : n.trangThai === "long" ? "Lỏng (STP)" : n.trangThai === "khi" ? "Khí (STP)" : n.trangThaiGoc;
+
   const suKien = [
     { nhan: "Khối lượng nguyên tử", v: n.khoiLuong !== null ? `${n.khoiLuong} u` : "—" },
     { nhan: "Điểm nóng chảy", v: n.nongChayK !== null ? `${n.nongChayK} K  (${denC(n.nongChayK)} °C)` : "—" },
     { nhan: "Điểm sôi", v: n.soiK !== null ? `${n.soiK} K  (${denC(n.soiK)} °C)` : "—" },
     { nhan: "Khối lượng riêng", v: n.matDo !== null ? `${n.matDo} g/cm³` : "—" },
     { nhan: "Mức oxi hóa", v: n.cacMucOxiHoa },
-    { nhan: "Cấu hình electron", v: n.cauHinhElectron || "—" },
-    { nhan: "Trạng thái chuẩn", v: n.trangThaiGoc ? (n.trangThai === "ran" ? "Rắn (STP)" : n.trangThai === "long" ? "Lỏng (STP)" : n.trangThai === "khi" ? "Khí (STP)" : n.trangThaiGoc) : "—" },
+    { nhan: "Cấu hình electron", v: n.cauHinhElectron ? `${n.cauHinhElectron}${laDuDoanCauHinh ? " · dự đoán (chưa đo quang phổ)" : ""}` : "—" },
+    { nhan: "Trạng thái chuẩn", v: n.trangThaiGoc ? `${laDuDoanTrangThai ? "Dự đoán: " : ""}${nhanTrangThai}` : "—" },
     { nhan: "Năm phát hiện", v: dichNam(n.namPhatHien) },
   ];
 
@@ -123,6 +127,7 @@ export default async function TrangNguyenTo({ params }: ThuocTinhTrang) {
           <p className="mt-6 flex flex-wrap gap-2">
             <span className="rounded-full border border-washi/15 px-4 py-1.5 text-xs text-washi-mo">
               Sắp xếp lớp vỏ: {n.lopVo.join(" · ") || "—"} e⁻
+              {n.cauHinhElectronCertainty === "du-doan" && " · dự đoán"}
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-washi/15 px-4 py-1.5 text-xs text-washi-mo">
               Màu CPK

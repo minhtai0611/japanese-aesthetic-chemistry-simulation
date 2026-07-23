@@ -9,10 +9,17 @@ interface Hat {
 }
 
 /** Hệ hạt: rắn dao động quanh mạng tinh thể, lỏng trôi Brown, khí bay tự do */
-function useDongCoHat(soHat: number) {
+function useDongCoHat(soHat: number, trangThai: "ran" | "long" | "khi", rung: number) {
   const thamChieuCanvas = useRef<HTMLCanvasElement | null>(null);
   const cacHat = useRef<Hat[]>([]);
   const cauHinh = useRef({ trangThai: "ran" as "ran" | "long" | "khi", rung: 0.4 });
+
+  // Cập nhật cấu hình động cơ hạt ngay trong hook sở hữu ref này — tránh mutate
+  // một giá trị được trả ra ngoài cho component gọi (react-hooks/immutability).
+  useEffect(() => {
+    cauHinh.current.trangThai = trangThai;
+    cauHinh.current.rung = rung;
+  }, [trangThai, rung]);
 
   useEffect(() => {
     const canvas = thamChieuCanvas.current;
@@ -104,7 +111,7 @@ function useDongCoHat(soHat: number) {
     };
   }, [soHat]);
 
-  return { thamChieuCanvas, cauHinh };
+  return { thamChieuCanvas };
 }
 
 const BIEU_TUONG = {
@@ -124,13 +131,13 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
   const tToiDa = Math.ceil((nt?.soiK ?? 3600) * 1.1);
   const [nhietDo, setNhietDo] = useState(300);
 
-  useEffect(() => {
-    if (nt) setNhietDo(Math.round(Math.min(300, tToiDa * 0.5)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nt?.so]);
-
-  const soHat = 96;
-  const { thamChieuCanvas, cauHinh } = useDongCoHat(soHat);
+  // Đổi nguyên tố → đặt lại nhiệt độ khởi điểm. Điều chỉnh state khi lựa chọn đổi,
+  // ngay trong render thay vì effect (mẫu hình chính thức của React).
+  const [soTruoc, setSoTruoc] = useState(nt?.so);
+  if (nt && nt.so !== soTruoc) {
+    setSoTruoc(nt.so);
+    setNhietDo(Math.round(Math.min(300, tToiDa * 0.5)));
+  }
 
   const trangThai: "ran" | "long" | "khi" = !nt
     ? "ran"
@@ -139,11 +146,10 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
       : nhietDo < (nt.soiK ?? 0)
         ? "long"
         : "khi";
+  const rung = Math.min(nhietDo / Math.max(nt?.nongChayK ?? 1, 1), 2);
 
-  useEffect(() => {
-    cauHinh.current.trangThai = trangThai;
-    cauHinh.current.rung = Math.min(nhietDo / Math.max(nt?.nongChayK ?? 1, 1), 2);
-  }, [trangThai, nhietDo, nt, cauHinh]);
+  const soHat = 96;
+  const { thamChieuCanvas } = useDongCoHat(soHat, trangThai, rung);
 
   const BieuTuong = BIEU_TUONG[trangThai].icon;
   const denC = (k: number) => `${(k - 273.15).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} °C`;
@@ -254,7 +260,10 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-washi-mo">Trạng thái chuẩn (STP)</dt>
-              <dd className="text-right tabular-nums">{nt?.trangThaiGoc}</dd>
+              <dd className="text-right tabular-nums">
+                {nt?.trangThaiCertainty === "du-doan" ? "Dự đoán: " : ""}
+                {nt?.trangThaiGoc}
+              </dd>
             </div>
           </dl>
         </div>

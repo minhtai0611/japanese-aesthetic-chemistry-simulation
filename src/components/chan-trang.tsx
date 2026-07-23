@@ -21,7 +21,7 @@ export default function ChanTrang() {
               <ShieldCheck size={16} className="mt-0.5 shrink-0" />
               <span>
                 Cam kết minh bạch: website không tự chế số liệu. Mọi đại lượng hóa học
-                đều được truy vấn trực tiếp từ API công cộng của{" "}
+                đều được lấy trực tiếp từ API công cộng của{" "}
                 <a
                   href={NGUON_DU_LIEU.url}
                   target="_blank"
@@ -63,7 +63,7 @@ export default function ChanTrang() {
               </li>
               <li className="flex items-start gap-2">
                 <Waypoints size={15} className="mt-0.5 shrink-0 text-kin" />
-                <span>Không lưu kho dữ liệu riêng — mỗi lượt xem là một truy vấn sống tới NCBI</span>
+                <span>Không có kho dữ liệu hóa học riêng — đồng bộ từ NCBI, cache có kiểm soát (tối đa 7 ngày)</span>
               </li>
             </ul>
             <p className="chu-doc float-right -mt-16 hidden text-xs text-washi/20 lg:block">
