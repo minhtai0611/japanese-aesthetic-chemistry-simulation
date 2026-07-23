@@ -116,14 +116,21 @@ export default function BangTuanHoanTuongTac({ nguyenTo }: { nguyenTo: NguyenTo[
               >
                 <Link
                   href={`/nguyen-to/${n.kyHieu.toLowerCase()}`}
-                  title={`${n.tenVi} (${n.kyHieu}) — Z = ${n.so}`}
+                  title={`${n.tenVi} (${n.kyHieu}) — Z = ${n.so}${n.trangThaiCertainty === "du-doan" ? " — trạng thái dự đoán, chưa đo trực tiếp" : ""}`}
                   className="group relative block aspect-square overflow-hidden rounded-[7px] border px-1.5 pt-1 transition-transform duration-300 hover:z-10 hover:scale-[1.25] hover:shadow-[0_8px_30px_rgba(0,0,0,0.55)]"
                   style={{
                     borderColor: `${MAU_KHOI[n.khoi]}66`,
                     background: `linear-gradient(155deg, ${MAU_KHOI[n.khoi]}2e, #12100c 70%)`,
                   }}
                 >
-                  <span className="block text-[9px] leading-none text-washi-mo/80 tabular-nums">{n.so}</span>
+                  <span className="block text-[9px] leading-none text-washi-mo/80 tabular-nums">
+                    {n.so}
+                    {n.trangThaiCertainty === "du-doan" && (
+                      <span className="text-kin" aria-hidden>
+                        {" "}*
+                      </span>
+                    )}
+                  </span>
                   <span
                     className="mt-0.5 block font-display text-[15px] font-bold leading-none sm:text-base"
                     style={{ color: MAU_KHOI[n.khoi] }}
@@ -175,7 +182,8 @@ export default function BangTuanHoanTuongTac({ nguyenTo }: { nguyenTo: NguyenTo[
         ))}
         <span className="flex items-start gap-2 text-xs text-washi-mo/80">
           <Info size={14} className="mt-0.5 shrink-0 text-kin" />
-          Số liệu từng ô (khối lượng, nhiệt độ chuyển pha, độ âm điện…) được truy vấn sống từ PubChem PUG-REST.
+          Số liệu từng ô (khối lượng, nhiệt độ chuyển pha, độ âm điện…) đồng bộ từ PubChem PUG-REST, cache có kiểm soát.
+          Dấu <span className="text-kin">*</span> bên số hiệu nguyên tử: trạng thái vật chất PubChem đánh dấu “dự đoán”, chưa đo trực tiếp.
         </span>
       </div>
     </div>

@@ -11,6 +11,8 @@
  */
 
 import { BO_TRI, TEN_VI, DICH_GIA_DINH } from "./nguyen-to";
+import { lopVoTuCauHinh } from "./electron-config";
+import { dichTenHopChat, goiYTenTiengViet } from "./alias-hop-chat";
 
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
 const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
@@ -47,6 +49,20 @@ export interface NguyenTo {
   cacMucOxiHoa: string;
   trangThaiGoc: string;            // dữ liệu nguyên gốc từ API
   trangThai: "ran" | "long" | "khi" | "chua-xac-dinh";
+  /**
+   * Độ chắc chắn của trạng thái chuẩn: PubChem tự đánh dấu các nguyên tố siêu nặng
+   * tổng hợp, số lượng nguyên tử quá ít để đo trạng thái khối, bằng cụm "Expected to
+   * be a ...". Field này giữ nguyên tín hiệu đó thay vì để UI hiển thị như một fact
+   * đo đạc chắc chắn.
+   */
+  trangThaiCertainty: "do-dac" | "du-doan" | "chua-xac-dinh";
+  /**
+   * Cấu hình electron của các nguyên tố cùng nhóm "chưa đo trạng thái khối" ở trên
+   * cũng chưa từng được xác định bằng thực nghiệm quang phổ — chỉ có giá trị tính
+   * toán lý thuyết. Suy ra từ CÙNG tín hiệu nguồn (trangThaiGoc), không phải số liệu
+   * tự bịa.
+   */
+  cauHinhElectronCertainty: "do-dac" | "du-doan" | "chua-xac-dinh";
   nongChayK: number | null;        // K
   soiK: number | null;             // K
   matDo: number | null;            // g/cm³
@@ -81,29 +97,10 @@ function trangThaiCua(goc: string): NguyenTo["trangThai"] {
   return "chua-xac-dinh";
 }
 
-/** Mở rộng cấu hình electron dạng "[Xe]4f14 5d10 6s2" thành số e trên từng lớp n */
-export function lopVoTuCauHinh(cauHinh: string, theoKyHieu: Map<string, NguyenTo>): number[] {
-  const lop = new Array<number>(7).fill(0);
-  const moRong = (cfg: string, chieuSau: number) => {
-    if (chieuSau > 4 || !cfg) return;
-    const phanConLai = cfg.replace(/\[([A-Za-z]{1,2})\]/g, (_, k: string) => {
-      const loi = theoKyHieu.get(k);
-      // Thêm khoảng trắng để token không bị dính liền thành "1s22s2" → sai số electron
-      return loi ? `${loi.cauHinhElectron} ` : "";
-    });
-    if (phanConLai.includes("[")) {
-      moRong(phanConLai, chieuSau + 1);
-      return;
-    }
-    const bm = /(\d)([spdf])(\d+)/g;
-    let m: RegExpExecArray | null;
-    while ((m = bm.exec(phanConLai))) {
-      const n = Number(m[1]);
-      if (n >= 1 && n <= 7) lop[n - 1] += Number(m[3]);
-    }
-  };
-  moRong(cauHinh, 0);
-  return lop.filter((x) => x > 0);
+/** PubChem đánh dấu suy đoán bằng cụm "Expected to be a ..." thay vì đo trực tiếp */
+function doTinCayTuTrangThaiGoc(goc: string): NguyenTo["trangThaiCertainty"] {
+  if (!goc) return "chua-xac-dinh";
+  return /expected/i.test(goc) ? "du-doan" : "do-dac";
 }
 
 let demNguyenTo = 0;
@@ -135,6 +132,8 @@ export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
       cacMucOxiHoa: c[viTri("OxidationStates")] || "—",
       trangThaiGoc: c[viTri("StandardState")] ?? "",
       trangThai: trangThaiCua(c[viTri("StandardState")] ?? ""),
+      trangThaiCertainty: doTinCayTuTrangThaiGoc(c[viTri("StandardState")] ?? ""),
+      cauHinhElectronCertainty: doTinCayTuTrangThaiGoc(c[viTri("StandardState")] ?? ""),
       nongChayK: soHoacNull(c[viTri("MeltingPoint")]),
       soiK: soHoacNull(c[viTri("BoilingPoint")]),
       matDo: soHoacNull(c[viTri("Density")]),
@@ -203,9 +202,20 @@ interface BangThuocTinh {
   };
 }
 
+/**
+ * Xác định đoạn đường dẫn PUG-REST cho một từ khóa tra cứu:
+ *  - toàn số  → coi là CID thật (/compound/cid/{cid})
+ *  - còn lại  → dịch alias tiếng Việt phổ biến (nếu có) rồi tra theo tên (/compound/name/{ten})
+ */
+function duongDanHopChat(tuKhoa: string): string {
+  const t = tuKhoa.trim();
+  if (/^\d+$/.test(t)) return `cid/${t}`;
+  return `name/${encodeURIComponent(dichTenHopChat(t))}`;
+}
+
 export async function layHopChat(ten: string): Promise<HopChat | null> {
   const duLieu = await goiPug<BangThuocTinh>(
-    `/pug/compound/name/${encodeURIComponent(ten.trim())}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
+    `/pug/compound/${duongDanHopChat(ten)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
   );
   const p = duLieu?.PropertyTable?.Properties?.[0];
   if (!p) return null;
@@ -262,9 +272,7 @@ interface BanGhi3D {
 export async function layHopChat3D(ten: string): Promise<HopChat3D | null> {
   const tenSach = ten.trim().slice(0, 120);
   const [banGhi, thuocTinh] = await Promise.all([
-    goiPug<BanGhi3D>(
-      `/pug/compound/name/${encodeURIComponent(tenSach)}/JSON?record_type=3d`,
-    ),
+    goiPug<BanGhi3D>(`/pug/compound/${duongDanHopChat(tenSach)}/JSON?record_type=3d`),
     layHopChat(tenSach),
   ]);
   const pc = banGhi?.PC_Compounds?.[0];
@@ -310,8 +318,16 @@ interface GoiYJson {
 export async function layGoiY(tu: string): Promise<string[]> {
   const q = tu.trim().replace(/[/\\]/g, "").slice(0, 60);
   if (q.length < 2) return [];
+
+  // Alias tiếng Việt phổ biến (nước, muối, đường…) — thêm dạng tiếng Anh thật lên đầu gợi ý.
+  const goiYViet = goiYTenTiengViet(q);
+
+  // CID thuần số: PubChem autocomplete không hiểu số, tra thẳng không cần gợi ý tên.
+  if (/^\d+$/.test(q)) return [];
+
   const data = await goiPug<GoiYJson>(
-    `/autocomplete/compound/${encodeURIComponent(q)}/JSON?limit=8`,
+    `/autocomplete/compound/${encodeURIComponent(dichTenHopChat(q))}/JSON?limit=8`,
   );
-  return data?.dictionary_terms?.compound ?? [];
+  const goiYPubChem = data?.dictionary_terms?.compound ?? [];
+  return [...new Set([...goiYViet, ...goiYPubChem])].slice(0, 8);
 }
