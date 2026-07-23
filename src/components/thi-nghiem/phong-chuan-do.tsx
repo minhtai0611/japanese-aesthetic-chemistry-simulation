@@ -53,10 +53,14 @@ export default function PhongChuanDo() {
     };
   }, [chay, vToiDa]);
 
-  useEffect(() => {
+  // Đổi Cₐ/C_b/Vₐ → chuẩn độ lại từ đầu. Điều chỉnh state khi tham số đổi, ngay
+  // trong render (mẫu hình chính thức của React) thay vì effect.
+  const [thamSoTruoc, setThamSoTruoc] = useState({ ca, cb, va });
+  if (thamSoTruoc.ca !== ca || thamSoTruoc.cb !== cb || thamSoTruoc.va !== va) {
+    setThamSoTruoc({ ca, cb, va });
     setVb(0);
     setChay(false);
-  }, [ca, cb, va]);
+  }
 
   const duongConG = useMemo(() => {
     const W = 660, H = 340, PL = 46, PR = 18, PT = 20, PB = 34;

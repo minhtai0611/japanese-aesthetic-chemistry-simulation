@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Droplets, FlaskConical, Thermometer } from "lucide-react";
+import { ArrowUpRight, Droplets, FlaskConical, Thermometer } from "lucide-react";
 import HienDan from "@/components/hien-dan";
-import PhongPhaChe from "@/components/thi-nghiem/phong-pha-che";
-import PhongChuanDo from "@/components/thi-nghiem/phong-chuan-do";
-import PhongChuyenPha from "@/components/thi-nghiem/phong-chuyen-pha";
-import { layTatCaNguyenTo } from "@/lib/pubchem";
+import { CAC_PHONG } from "@/lib/phong-thi-nghiem";
 
 export const metadata: Metadata = {
   title: "Phòng thí nghiệm ảo — Chuẩn độ, pha loãng, chuyển pha",
@@ -14,15 +11,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/thi-nghiem" },
 };
 
-const MUC_LUC = [
-  { neo: "pha-che", kanji: "希釈", icon: Droplets, nhan: "Pha chế & pha loãng" },
-  { neo: "chuan-do", kanji: "滴定", icon: FlaskConical, nhan: "Chuẩn độ axit–bazơ" },
-  { neo: "chuyen-pha", kanji: "相転移", icon: Thermometer, nhan: "Buồng chuyển pha" },
-];
+const ICON = { "pha-che": Droplets, "chuan-do": FlaskConical, "chuyen-pha": Thermometer } as const;
 
-export default async function TrangThiNghiem() {
-  const nguyenTo = await layTatCaNguyenTo();
-
+export default function TrangThiNghiem() {
   return (
     <main className="mx-auto max-w-7xl px-5 pb-24 pt-32 sm:px-8">
       <HienDan>
@@ -37,89 +28,33 @@ export default async function TrangThiNghiem() {
         </p>
       </HienDan>
 
-      {/* Mục lục phòng */}
-      <HienDan tre={0.1} className="sticky top-[64px] z-40 mt-10">
-        <div className="the-khac flex flex-wrap gap-2 rounded-2xl bg-sumi/85 p-2 backdrop-blur-md">
-          {MUC_LUC.map((m) => (
-            <Link
-              key={m.neo}
-              href={`#${m.neo}`}
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-washi-mo transition-colors hover:bg-shu/15 hover:text-washi"
-            >
-              <m.icon size={15} className="text-shu-sang" />
-              <span className="hidden font-mono text-[10px] text-kin sm:inline">{m.kanji}</span>
-              {m.nhan}
-            </Link>
-          ))}
-        </div>
-      </HienDan>
-
-      {/* PHÒNG 1 — PHA CHẾ */}
-      <section id="pha-che" className="scroll-mt-32 pt-20">
-        <HienDan>
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="chi-muc mb-2 text-kin">Phòng I · 希釈</p>
-              <h2 className="font-display text-3xl font-bold sm:text-4xl">Pha chế &amp; pha loãng dung dịch</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-washi-mo">
-                Gõ tên chất, PubChem trả về khối lượng mol chính xác đến hàng phần nghìn.
-                Máy nghiền số liệu qua n = m/M và định luật C₁V₁ = C₂V₂,
-                rồi rót dung dịch vào cốc với độ đậm đúng tỉ lệ nồng độ.
-              </p>
-            </div>
-            <p className="font-mono text-xs text-washi-mo/70">n = m/M · C = n/V · C₁V₁ = C₂V₂</p>
-          </div>
-        </HienDan>
-        <PhongPhaChe />
-      </section>
-
-      <div className="vach-kin my-24 opacity-40" />
-
-      {/* PHÒNG 2 — CHUẨN ĐỘ */}
-      <section id="chuan-do" className="scroll-mt-32">
-        <HienDan>
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="chi-muc mb-2 text-kin">Phòng II · 滴定</p>
-              <h2 className="font-display text-3xl font-bold sm:text-4xl">Chuẩn độ axit mạnh – bazơ mạnh</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-washi-mo">
-                Mở khóa burette. Từng giọt bazơ rơi xuống, cân bằng mol H⁺/OH⁻ lật trạng thái,
-                phenolphtalein bừng hồng đúng lúc pH vượt 8,2 — và đường cong chuẩn độ
-                hình thành ngay trước mắt bạn.
-              </p>
-            </div>
-            <p className="font-mono text-xs text-washi-mo/70">pH = −log[H⁺] · K_w = 10⁻¹⁴</p>
-          </div>
-        </HienDan>
-        <PhongChuanDo />
-      </section>
-
-      <div className="vach-kin my-24 opacity-40" />
-
-      {/* PHÒNG 3 — CHUYỂN PHA */}
-      <section id="chuyen-pha" className="scroll-mt-32">
-        <HienDan>
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="chi-muc mb-2 text-kin">Phòng III · 相転移</p>
-              <h2 className="font-display text-3xl font-bold sm:text-4xl">Buồng chuyển pha vi hạt</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-washi-mo">
-                Đặt một nguyên tố vào lò. Khi nhiệt độ chạm mốc nóng chảy thật của nó — ví dụ
-                sắt ở 1 811 K — mạng tinh thể sụp đổ thành dòng chảy; qua điểm sôi, từng hạt
-                giành lấy tự do. Hai mốc nhiệt đều là số liệu đo từ PubChem.
-              </p>
-            </div>
-            <p className="font-mono text-xs text-washi-mo/70">T &lt; T_nc → rắn · T_nc ≤ T &lt; T_s → lỏng · T ≥ T_s → khí</p>
-          </div>
-        </HienDan>
-        {nguyenTo.length > 0 ? (
-          <PhongChuyenPha nguyenTo={nguyenTo} />
-        ) : (
-          <p className="the-khac rounded-2xl p-6 text-sm text-washi-mo">
-            Đang chờ PubChem đáp lễ — tải lại trang sau vài giây.
-          </p>
-        )}
-      </section>
+      <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {CAC_PHONG.map((p, i) => {
+          const Icon = ICON[p.slug];
+          return (
+            <HienDan key={p.slug} tre={i * 0.08}>
+              <Link
+                href={`/thi-nghiem/${p.slug}`}
+                className="the-khac group relative block h-full overflow-hidden rounded-3xl p-7 transition-all duration-500 hover:-translate-y-1.5"
+              >
+                <span className="pointer-events-none absolute -right-3 -top-6 select-none font-display text-[7rem] font-black leading-none text-washi/[0.045] transition-colors duration-500 group-hover:text-shu/15">
+                  {p.kanji}
+                </span>
+                <span className="inline-flex rounded-2xl border border-shu/35 bg-shu/10 p-3 text-shu-sang">
+                  <Icon size={20} />
+                </span>
+                <p className="mt-5 chi-muc text-kin">Phòng {i + 1} · {p.kanji}</p>
+                <h2 className="mt-2 font-display text-xl font-bold">{p.nhan}</h2>
+                <p className="mt-2.5 text-sm leading-relaxed text-washi-mo">{p.moTa}</p>
+                <p className="mt-3 font-mono text-[10px] text-washi-mo/70">{p.congThuc}</p>
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-kin">
+                  Vào phòng <ArrowUpRight size={13} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </span>
+              </Link>
+            </HienDan>
+          );
+        })}
+      </div>
     </main>
   );
 }

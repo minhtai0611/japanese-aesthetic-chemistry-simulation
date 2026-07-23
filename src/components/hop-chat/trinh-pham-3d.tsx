@@ -7,6 +7,8 @@ import {
   Atom, Check, Copy, ExternalLink, Loader2, Orbit, Pause, RotateCw, Search,
 } from "lucide-react";
 import type { HopChat, HopChat3D } from "@/lib/pubchem";
+import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
+import { slugHoaHopChat } from "@/lib/slug";
 
 const CanhHopChat = dynamic(() => import("@/components/ba-d/canh-hop-chat"), {
   ssr: false,
@@ -17,27 +19,24 @@ const CanhHopChat = dynamic(() => import("@/components/ba-d/canh-hop-chat"), {
   ),
 });
 
-const GOI_Y_NHANH = [
-  { ten: "benzene", nhan: "Benzene — vòng thơm" },
-  { ten: "caffeine", nhan: "Caffeine" },
-  { ten: "aspirin", nhan: "Aspirin" },
-  { ten: "glucose", nhan: "Glucose" },
-  { ten: "water", nhan: "Nước" },
-  { ten: "ethanol", nhan: "Ethanol" },
-  { ten: "chlorophyll a", nhan: "Diệp lục" },
-  { ten: "adenosine triphosphate", nhan: "ATP" },
-];
-
 function voiChiSo(cf: string | null) {
   if (!cf) return "—";
   return cf.split(/(\d+)/).map((p, i) => (/^\d+$/.test(p) ? <sub key={i}>{p}</sub> : <span key={i}>{p}</span>));
 }
 
-export default function TrinhPham3D() {
-  const [nhap, setNhap] = useState("caffeine");
+export default function TrinhPham3D({
+  tenBanDau = "caffeine",
+  thuocTinhBanDau = null,
+  baChieuBanDau = null,
+}: {
+  tenBanDau?: string;
+  thuocTinhBanDau?: HopChat | null;
+  baChieuBanDau?: HopChat3D | null;
+}) {
+  const [nhap, setNhap] = useState(tenBanDau);
   const [goiY, setGoiY] = useState<string[]>([]);
-  const [thuocTinh, setThuocTinh] = useState<HopChat | null>(null);
-  const [baChieu, setBaChieu] = useState<HopChat3D | null>(null);
+  const [thuocTinh, setThuocTinh] = useState<HopChat | null>(thuocTinhBanDau);
+  const [baChieu, setBaChieu] = useState<HopChat3D | null>(baChieuBanDau);
   const [dangTai, setDangTai] = useState(false);
   const [loi, setLoi] = useState("");
   const [tuXoay, setTuXoay] = useState(true);
@@ -59,6 +58,12 @@ export default function TrinhPham3D() {
       setThuocTinh(r1.ok ? ((await r1.json()) as HopChat) : null);
       setBaChieu((await r2.json()) as HopChat3D);
       setNhap(q);
+      // Cập nhật thanh địa chỉ thành permalink thật của hợp chất này — chỉ đổi URL
+      // hiển thị (History API), KHÔNG điều hướng Next.js, để giữ nguyên Canvas 3D
+      // đang chạy (tránh phá lại fix "context loss" khi remount Canvas mỗi lần đổi).
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `/hop-chat/${slugHoaHopChat(q)}`);
+      }
     } catch {
       setLoi(`PubChem không có mô hình 3D cho “${q}” — thử tên tiếng Anh (vd: caffeine, glucose).`);
       setBaChieu(null);
@@ -68,13 +73,9 @@ export default function TrinhPham3D() {
   }, []);
 
   useEffect(() => {
-    void tai("caffeine");
-  }, [tai]);
-
-  useEffect(() => {
     if (demNhap.current) clearTimeout(demNhap.current);
     const q = nhap.trim();
-    if (q.length < 2) return setGoiY([]);
+    if (q.length < 2) return;
     demNhap.current = setTimeout(async () => {
       try {
         const r = await fetch(`/api/goi-y?tu=${encodeURIComponent(q)}`);
@@ -100,7 +101,11 @@ export default function TrinhPham3D() {
             <Search size={19} className="shrink-0 text-shu-sang" />
             <input
               value={nhap}
-              onChange={(e) => setNhap(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNhap(v);
+                if (v.trim().length < 2) setGoiY([]);
+              }}
               onKeyDown={(e) => e.key === "Enter" && void tai(nhap)}
               placeholder="Tìm hợp chất trên PubChem: caffeine, vitamin c, paracetamol…"
               className="w-full bg-transparent outline-none placeholder:text-washi-mo/60"
@@ -131,7 +136,7 @@ export default function TrinhPham3D() {
           </AnimatePresence>
         </div>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {GOI_Y_NHANH.map((g) => (
+          {HOP_CHAT_NOI_BAT.map((g) => (
             <button
               key={g.ten}
               onClick={() => void tai(g.ten)}

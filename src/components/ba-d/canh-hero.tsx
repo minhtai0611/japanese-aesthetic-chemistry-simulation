@@ -8,6 +8,12 @@ import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
 import type { HopChat3D } from "@/lib/pubchem";
 
+/** Hàm băm quyết định (pure) thay Math.random — cùng seed luôn cho cùng kết quả */
+function ngauNhienGia(hat: number): number {
+  const x = Math.sin(hat * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 /* ------------------------------ Bụi phòng chìm ------------------------------ */
 function DamBui() {
   const thamChieu = useRef<THREE.Points>(null);
@@ -15,9 +21,9 @@ function DamBui() {
     const so = 520;
     const mang = new Float32Array(so * 3);
     for (let i = 0; i < so; i++) {
-      const r = 5.5 + Math.random() * 7;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 5.5 + ngauNhienGia(i * 3) * 7;
+      const theta = ngauNhienGia(i * 3 + 1) * Math.PI * 2;
+      const phi = Math.acos(2 * ngauNhienGia(i * 3 + 2) - 1);
       mang[i * 3] = r * Math.sin(phi) * Math.cos(theta);
       mang[i * 3 + 1] = r * Math.cos(phi) * 0.7;
       mang[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta) - 2;

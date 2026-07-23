@@ -16,7 +16,9 @@ export default function DemTang({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const trongTamNhin = useInView(ref, { once: true, margin: "-60px" });
-  const [giaTri, setGiaTri] = useState(0);
+  // Giá trị thật ngay từ lần render đầu (SSR) — animation đếm lên chỉ là hiệu ứng
+  // tô điểm khi cuộn tới, không phải nguồn sự thật của con số.
+  const [giaTri, setGiaTri] = useState(den);
 
   useEffect(() => {
     if (!trongTamNhin) return;

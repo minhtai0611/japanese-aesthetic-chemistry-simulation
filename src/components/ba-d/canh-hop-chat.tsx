@@ -94,12 +94,16 @@ export default function CanhHopChat({
   const khoangCach = Math.min(Math.max(banKinh * 2.5, 4.5), 26);
   // Vị trí camera ban đầu (Canvas chỉ mount MỘT LẦN) — các lần đổi phân tử sau đó
   // do DongBoKhungHinh tự cập nhật lại, không cần Canvas remount.
-  const camBanDau = useRef({ position: [0, banKinh * 0.35, khoangCach] as [number, number, number], fov: 44 });
+  const camBanDau = useMemo(
+    () => ({ position: [0, banKinh * 0.35, khoangCach] as [number, number, number], fov: 44 }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
     <div className="absolute inset-0 mo-dan">
       <Canvas
-        camera={camBanDau.current}
+        camera={camBanDau}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
