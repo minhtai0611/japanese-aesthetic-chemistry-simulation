@@ -29,14 +29,20 @@ export default function DieuHuong() {
   const [mo, setMo] = useState(false);
   const [cuon, setCuon] = useState(false);
 
+  // Đóng menu di động khi đường dẫn đổi — điều chỉnh state khi props/route đổi,
+  // làm ngay trong render thay vì effect để tránh render lồng nhau không cần thiết.
+  const [duongTruoc, setDuongTruoc] = useState(duong);
+  if (duong !== duongTruoc) {
+    setDuongTruoc(duong);
+    setMo(false);
+  }
+
   useEffect(() => {
     const khi = () => setCuon(window.scrollY > 24);
     khi();
     window.addEventListener("scroll", khi, { passive: true });
     return () => window.removeEventListener("scroll", khi);
   }, []);
-
-  useEffect(() => setMo(false), [duong]);
 
   return (
     <header
@@ -136,7 +142,7 @@ export default function DieuHuong() {
               ))}
             </div>
             <p className="px-8 pb-10 text-xs leading-relaxed text-washi-mo">
-              Dữ liệu hóa học thời gian thực từ PubChem PUG-REST — NCBI.
+              Dữ liệu hóa học đồng bộ từ PubChem PUG-REST — NCBI, cache có kiểm soát.
             </p>
           </motion.div>
         )}

@@ -58,13 +58,11 @@ export const metadata: Metadata = {
     siteName: `${SITE.ten} — ${SITE.khauHieu}`,
     title: `${SITE.ten} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`,
     description: SITE.moTa,
-    images: [{ url: "/images/og-cover.jpg", width: 1200, height: 630, alt: "KAGAKU — Phòng thí nghiệm hóa học ảo" }],
   },
   twitter: {
     card: "summary_large_image",
     title: `${SITE.ten} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`,
     description: SITE.moTa,
-    images: ["/images/og-cover.jpg"],
   },
   category: "Giáo dục khoa học",
 };
@@ -84,7 +82,7 @@ const jsonLd = {
       "@type": "Organization",
       name: "KAGAKU Lab",
       url: SITE.url,
-      logo: `${SITE.url}/icon.png`,
+      logo: `${SITE.url}/icon`,
     },
     {
       "@type": "EducationalOrganization",
@@ -99,12 +97,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi" className={`${beVietnam.variable} ${playfair.variable} ${plexMono.variable}`}>
       <body className="hat-ro min-h-screen bg-sumi text-washi antialiased">
+        <a href="#noi-dung-chinh" className="lien-ket-bo-qua">
+          Bỏ qua tới nội dung chính
+        </a>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <DieuHuong />
-        {children}
+        <div id="noi-dung-chinh">{children}</div>
         <ChanTrang />
       </body>
     </html>

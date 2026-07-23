@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import HienDan from "@/components/hien-dan";
 import TrinhPham3D from "@/components/hop-chat/trinh-pham-3d";
+import { layHopChat, layHopChat3D } from "@/lib/pubchem";
 
 export const metadata: Metadata = {
   title: "Đài quan sát phân tử 3D — tra cứu hợp chất PubChem",
   description:
-    "Tra cứu hơn 100 triệu hợp chất trên PubChem và dựng mô hình 3D tương tác ngay trong trình duyệt: tọa độ nguyên tử, bậc liên kết, khối lượng mol, logP, TPSA, SMILES — dữ liệu thời gian thực, màu nguyên tử theo chuẩn CPK.",
+    "Tra cứu hơn 100 triệu hợp chất trên PubChem và dựng mô hình 3D tương tác ngay trong trình duyệt: tọa độ nguyên tử, bậc liên kết, khối lượng mol, logP, TPSA, SMILES — dữ liệu đồng bộ từ PubChem, màu nguyên tử theo chuẩn CPK.",
   alternates: { canonical: "/hop-chat" },
 };
 
-export default function TrangHopChat() {
+const HOP_CHAT_MAC_DINH = "caffeine";
+
+export default async function TrangHopChat() {
+  const [thuocTinhBanDau, baChieuBanDau] = await Promise.all([
+    layHopChat(HOP_CHAT_MAC_DINH),
+    layHopChat3D(HOP_CHAT_MAC_DINH),
+  ]);
+
   return (
     <main className="mx-auto max-w-7xl px-5 pb-24 pt-32 sm:px-8">
       <HienDan className="text-center">
@@ -25,7 +33,11 @@ export default function TrangHopChat() {
       </HienDan>
 
       <div className="mt-12">
-        <TrinhPham3D />
+        <TrinhPham3D
+          tenBanDau={HOP_CHAT_MAC_DINH}
+          thuocTinhBanDau={thuocTinhBanDau}
+          baChieuBanDau={baChieuBanDau}
+        />
       </div>
     </main>
   );

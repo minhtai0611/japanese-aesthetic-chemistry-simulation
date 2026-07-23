@@ -24,11 +24,17 @@ function congThucCoChuSo(cf: string | null | undefined) {
   );
 }
 
-export default function PhongPhaChe() {
+export default function PhongPhaChe({
+  tenBanDau = "NaOH",
+  hopChatBanDau = null,
+}: {
+  tenBanDau?: string;
+  hopChatBanDau?: HopChat | null;
+}) {
   const [cheDo, setCheDo] = useState<"hoa-tan" | "pha-loang">("hoa-tan");
-  const [nhap, setNhap] = useState("NaOH");
+  const [nhap, setNhap] = useState(tenBanDau);
   const [goiY, setGoiY] = useState<string[]>([]);
-  const [hopChat, setHopChat] = useState<HopChat | null>(null);
+  const [hopChat, setHopChat] = useState<HopChat | null>(hopChatBanDau);
   const [dangTai, setDangTai] = useState(false);
   const [loi, setLoi] = useState("");
 
@@ -64,13 +70,9 @@ export default function PhongPhaChe() {
   }, []);
 
   useEffect(() => {
-    void taiHopChat("NaOH");
-  }, [taiHopChat]);
-
-  useEffect(() => {
     if (demNhap.current) clearTimeout(demNhap.current);
     const q = nhap.trim();
-    if (q.length < 2) return setGoiY([]);
+    if (q.length < 2) return;
     demNhap.current = setTimeout(async () => {
       try {
         const r = await fetch(`/api/goi-y?tu=${encodeURIComponent(q)}`);
@@ -125,7 +127,11 @@ export default function PhongPhaChe() {
               <Search size={16} className="text-shu-sang" />
               <input
                 value={nhap}
-                onChange={(e) => setNhap(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNhap(v);
+                  if (v.trim().length < 2) setGoiY([]);
+                }}
                 onKeyDown={(e) => e.key === "Enter" && void taiHopChat(nhap)}
                 placeholder="Nhập tên hoặc công thức: NaOH, glucose, caffeine…"
                 className="w-full bg-transparent text-sm outline-none placeholder:text-washi-mo/60"

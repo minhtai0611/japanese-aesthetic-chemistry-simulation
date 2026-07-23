@@ -175,3 +175,41 @@ body {
 input[type="range"] {
   accent-color: var(--color-shu);
 }
+
+/* ---- Bỏ qua tới nội dung chính (bàn phím) ---- */
+.lien-ket-bo-qua {
+  position: fixed;
+  top: -100%;
+  left: 1rem;
+  z-index: 100;
+  background: var(--color-shu);
+  color: var(--color-washi);
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: top 0.2s ease;
+}
+.lien-ket-bo-qua:focus {
+  top: 1rem;
+}
+
+/* ---- Focus rõ ràng cho điều hướng bàn phím ---- */
+:focus-visible {
+  outline: 2px solid var(--color-shu-sang);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- Tôn trọng "giảm chuyển động" của hệ điều hành/trình duyệt ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .hat-ro::after {
+    display: none;
+  }
+}

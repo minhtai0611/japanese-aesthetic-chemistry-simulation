@@ -46,7 +46,7 @@ export default async function TrangChu() {
             <p className="mt-8 max-w-xl text-base leading-relaxed text-washi-mo sm:text-lg">
               Mô phỏng thí nghiệm ảo bằng tiếng Việt — bảng tuần hoàn 118 nguyên tố,
               phòng chuẩn độ, pha chế dung dịch, buồng chuyển pha và đài quan sát phân tử 3D.
-              Mọi số liệu được truy vấn sống từ <strong className="font-semibold text-washi">PubChem PUG-REST</strong> —
+              Mọi số liệu đến thẳng từ <strong className="font-semibold text-washi">PubChem PUG-REST</strong>, đồng bộ và lưu đệm có kiểm soát —
               không suy diễn, không dữ liệu thủ công.
             </p>
           </HienDan>
@@ -129,20 +129,20 @@ export default async function TrangChu() {
             {
               href: "/bang-tuan-hoan", kanji: "周期表", icon: Atom,
               tieuDe: "Bảng tuần hoàn sống",
-              moTa: "118 nguyên tố với khối lượng, điểm nóng chảy, độ âm điện… truy vấn thẳng từ máy chủ NCBI. Lọc theo khối, pha, tìm kiếm tức thì.",
+              moTa: "118 nguyên tố với khối lượng, điểm nóng chảy, độ âm điện… đồng bộ từ máy chủ NCBI, cache có kiểm soát. Lọc theo khối, pha, tìm kiếm tức thì.",
             },
             {
-              href: "/thi-nghiem#pha-che", kanji: "希釈", icon: Droplets,
+              href: "/thi-nghiem/pha-che", kanji: "希釈", icon: Droplets,
               tieuDe: "Pha chế & pha loãng",
               moTa: "Nhập tên chất — PubChem trả khối lượng mol thật, máy tính n = m/M và C₁V₁ = C₂V₂ vẽ cốc dung dịch đổi màu theo nồng độ.",
             },
             {
-              href: "/thi-nghiem#chuan-do", kanji: "滴定", icon: FlaskConical,
+              href: "/thi-nghiem/chuan-do", kanji: "滴定", icon: FlaskConical,
               tieuDe: "Chuẩn độ axit–bazơ",
               moTa: "Mở khóa burette và ngắm phenolphtalein bừng hồng. Đường cong pH vẽ theo thời gian thực từ tích số ion K_w = 10⁻¹⁴.",
             },
             {
-              href: "/thi-nghiem#chuyen-pha", kanji: "相転移", icon: Thermometer,
+              href: "/thi-nghiem/chuyen-pha", kanji: "相転移", icon: Thermometer,
               tieuDe: "Buồng chuyển pha",
               moTa: "Kéo nhiệt độ lên hàng nghìn Kelvin: mạng tinh thể rung nóng, tan chảy thành dòng, rồi bốc hơi tán loạn — quanh mốc nóng chảy và sôi thật.",
             },
@@ -252,8 +252,8 @@ export default async function TrangChu() {
               },
               {
                 icon: Waypoints,
-                tieuDe: "Truy vấn đúng lúc",
-                moTa: "Mỗi lượt xem là một lễ truy vấn tới NCBI, được ghi đệm tôn trọng giới hạn của máy chủ công cộng. Dữ liệu luôn tươi như bình định mức mới rót.",
+                tieuDe: "Đồng bộ có kiểm soát",
+                moTa: "Dữ liệu được đồng bộ từ PubChem và lưu đệm có kiểm soát (tối đa 7 ngày) — tôn trọng giới hạn tần suất của một máy chủ công cộng, thay vì truy vấn trực tiếp ở mỗi lượt xem.",
               },
             ].map((c, i) => (
               <HienDan key={c.tieuDe} tre={i * 0.08}>
