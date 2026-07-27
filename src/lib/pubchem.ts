@@ -226,6 +226,22 @@ function duongDanHopChat(tuKhoa: string): string {
   return `name/${encodeURIComponent(dichTenHopChat(t))}`;
 }
 
+/**
+ * Thử lần lượt các biến thể tra cứu của một slug (xem `cacBienTheTraCuu` trong
+ * dinh-danh-chat.ts) cho tới khi PubChem trả về dữ liệu — dừng ở biến thể đầu
+ * tiên khớp. Dùng chung cho cả trang hợp chất và ảnh OG, tránh mỗi nơi tự thử
+ * một biến thể khác nhau rồi lệch kết quả.
+ */
+export async function layHopChatTheoBienThe(
+  cacBienThe: readonly string[],
+): Promise<{ tuKhoaDung: string; hopChat: HopChat | null }> {
+  for (const bt of cacBienThe) {
+    const hopChat = await layHopChat(bt);
+    if (hopChat) return { tuKhoaDung: bt, hopChat };
+  }
+  return { tuKhoaDung: cacBienThe[0], hopChat: null };
+}
+
 export async function layHopChat(ten: string): Promise<HopChat | null> {
   const duLieu = await goiPug<BangThuocTinh>(
     `/pug/compound/${duongDanHopChat(ten)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
