@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, ChevronRight, ExternalLink } from "lucide-react";
 import MoHinhBohr from "@/components/bang-tuan-hoan/mo-hinh-bohr";
 import { layNguyenTheoKyHieu, layTatCaNguyenTo, type NguyenTo } from "@/lib/pubchem";
 import { MAU_KHOI, NHAN_KHOI } from "@/lib/nguyen-to";
+import { canRedirect } from "@/lib/dinh-danh-chat";
 
 interface ThuocTinhTrang {
   params: Promise<{ kyhieu: string }>;
@@ -17,6 +18,8 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: ThuocTinhTrang): Promise<Metadata> {
   const { kyhieu } = await params;
+  if (canRedirect(kyhieu)) return {};
+
   const n = await layNguyenTheoKyHieu(kyhieu);
   if (!n) return { title: "Không tìm thấy nguyên tố" };
   const moTa = `${n.tenVi} (${n.kyHieu}), số hiệu nguyên tử ${n.so}, khối lượng nguyên tử ${n.khoiLuong} u. ${n.giaDinhVi}${n.nongChayK ? `, nóng chảy ở ${n.nongChayK} K` : ""}${n.soiK ? `, sôi ở ${n.soiK} K` : ""}. Cấu hình electron: ${n.cauHinhElectron}. Số liệu trực tiếp từ PubChem PUG-REST.`;
@@ -66,6 +69,12 @@ function ThanhDo({ nhan, giaTri, toiDa, donVi, mau }: {
 
 export default async function TrangNguyenTo({ params }: ThuocTinhTrang) {
   const { kyhieu } = await params;
+
+  // URL có dấu / hoa / ký tự lạ → 308 về canonical ASCII, cùng cơ chế khử lỗi
+  // 500 như /hop-chat/[ten] (vd. /nguyen-to/đồng từng 500 thay vì 404 sạch).
+  const canon = canRedirect(kyhieu);
+  if (canon) permanentRedirect(`/nguyen-to/${canon}`);
+
   const [n, tatCa] = await Promise.all([layNguyenTheoKyHieu(kyhieu), layTatCaNguyenTo()]);
   if (!n) notFound();
 
