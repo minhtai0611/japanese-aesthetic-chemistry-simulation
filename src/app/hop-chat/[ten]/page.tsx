@@ -6,15 +6,21 @@ import HienDan from "@/components/hien-dan";
 import TrinhPham3D from "@/components/hop-chat/trinh-pham-3d";
 import { layHopChat3D, layHopChatTheoBienThe, type HopChat3D } from "@/lib/pubchem";
 import { slugHoaHopChat } from "@/lib/slug";
-import { canRedirect, cacBienTheTraCuu, laChatGiaoDuc, slugCanonical } from "@/lib/dinh-danh-chat";
+import { canRedirect, cacBienTheTraCuu, laChatGiaoDuc, slugCanonical, CHAT_GIAO_DUC } from "@/lib/dinh-danh-chat";
 import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
 
 interface ThuocTinhTrang {
   params: Promise<{ ten: string }>;
 }
 
+// Khai tường minh (mặc định vốn đã là true): ngoài whitelist giáo dục dưới
+// đây, chất khác vẫn render được (không chặn tri thức — xem laChatGiaoDuc +
+// banner "ngoài chương trình"), chỉ không được prerender tĩnh lúc build.
+export const dynamicParams = true;
+
 export function generateStaticParams() {
-  return HOP_CHAT_NOI_BAT.map((c) => ({ ten: slugHoaHopChat(c.ten) }));
+  // Prerender toàn bộ whitelist giáo dục, không chỉ 8 chất nổi bật.
+  return CHAT_GIAO_DUC.map((c) => ({ ten: c.slug }));
 }
 
 export async function generateMetadata({ params }: ThuocTinhTrang): Promise<Metadata> {
@@ -58,7 +64,7 @@ export default async function TrangHopChatTheoTen({ params }: ThuocTinhTrang) {
   // "chất không tồn tại" (vd. chlorophyll a: PubChem có thuộc tính, không có 3D).
   if (!thuocTinhBanDau) notFound();
 
-  const baChieuBanDau: HopChat3D | null = await layHopChat3D(tenTruyVan);
+  const baChieuBanDau: HopChat3D | null = await layHopChat3D(tenTruyVan, thuocTinhBanDau);
 
   const ngoaiChuongTrinh = !laChatGiaoDuc(ten);
 
@@ -93,6 +99,16 @@ export default async function TrangHopChatTheoTen({ params }: ThuocTinhTrang) {
             <strong className="text-washi">Ngoài chương trình phổ thông.</strong>{" "}
             Chất này có trong CSDL PubChem nhưng không thuộc danh mục giáo dục của KAGAKU.
             Dữ liệu hiển thị vẫn lấy nguyên từ PubChem, không qua chỉnh sửa.
+          </p>
+        </div>
+      )}
+
+      {!baChieuBanDau && (
+        <div role="note" className="the-khac mx-auto mt-8 max-w-2xl rounded-2xl p-6 text-center">
+          <p className="text-washi-mo">
+            PubChem chưa công bố tọa độ conformer 3D cho{" "}
+            <strong className="text-washi">{tenTruyVan}</strong>. Các thuộc tính phân tử bên dưới
+            vẫn là dữ liệu thật từ CID {thuocTinhBanDau.cid}.
           </p>
         </div>
       )}
