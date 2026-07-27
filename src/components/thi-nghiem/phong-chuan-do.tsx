@@ -3,17 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Pause, Play, RotateCcw } from "lucide-react";
-
-/** pH dung dịch axit mạnh–bazơ mạnh từ số mol & Kw = 1e-14 (25 °C) — toán thuần, không suy diễn */
-function pHChuanDo(Ca: number, Va: number, Cb: number, Vb: number): number {
-  const molH = Ca * Va;       // mmol H⁺
-  const molOH = Cb * Vb;      // mmol OH⁻
-  const tong = Va + Vb;       // mL  (mmol/mL === mol/L)
-  const du = molH - molOH;
-  if (Math.abs(du) / tong < 1e-9) return 7;
-  if (du > 0) return -Math.log10(du / tong);
-  return 14 + Math.log10(-du / tong);
-}
+import { pHChuanDo, laDiemTuongDuong } from "@/lib/hoa-hoc/chuan-do";
 
 function mauLongTheoPh(pH: number): string {
   if (pH < 8.2) return "#cfdde6"; // phenolphtalein không màu
@@ -231,7 +221,7 @@ export default function PhongChuanDo() {
             Phenolphtalein: không màu pH &lt; 8,2 → hồng cánh sen pH &gt; 10
           </p>
           <p className="mt-2 text-center text-sm font-medium" style={{ color: pH >= 8.2 ? "#ff7fa8" : "#cfc6b2" }}>
-            {Math.abs(vTuongDuong - vb) < vToiDa / 120
+            {laDiemTuongDuong(ca, va, cb, vb)
               ? "ĐIỂM TƯƠNG ĐƯƠNG — dung dịch trung tính, pH = 7"
               : vb < vTuongDuong
                 ? "Trước điểm tương đương — dư axit"

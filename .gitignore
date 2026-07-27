@@ -36,3 +36,6 @@ AGENTS.md
 # Regenerated audit/metrics output — only the dated BASELINE snapshots are versioned
 docs/url-audit.md
 docs/metrics-raw.txt
+
+# Test coverage output
+/coverage

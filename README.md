@@ -1,5 +1,7 @@
 # KAGAKU (科学)
 
+[![CI](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml)
+
 A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 118-element periodic table, 3D molecule/compound viewers, and interactive virtual-lab experiments (titration, dilution, phase-change), styled with a Japanese aesthetic — kanji labels alongside Vietnamese copy.
 
 **Live:** https://japanese-aesthetic-chemistry-simula.vercel.app
@@ -39,6 +41,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run start` | Serve the production build |
 | `npm run lint` | Lint the codebase |
 | `npm run typecheck` | Type-check without emitting |
+| `npm run test` | Run the unit test suite (Vitest) |
+| `npm run test:cov` | Run tests with coverage |
+| `npm run audit:urls` | Crawl the alias/compound/element URL surface, report 404s/5xx |
 | `npm run db:push` | Push the Drizzle schema to Postgres |
 
 ## Project structure
@@ -61,3 +66,12 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Deployment
 
 Hosted on [Vercel](https://vercel.com) (Hobby tier) with a [Neon](https://neon.tech) Postgres database. Pushes to `master` auto-deploy.
+
+## License
+
+Code: MIT (see `LICENSE`).
+
+**The chemistry data is not this project's copyright.** All element and compound
+values are sourced from [PubChem](https://pubchem.ncbi.nlm.nih.gov) (NCBI/NIH) —
+data in the public domain of the U.S. government. KAGAKU does not modify,
+interpolate, or add any measured values of its own.
