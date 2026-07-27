@@ -6,7 +6,7 @@
  * Xem `docs/tim-kiem.md` để biết luồng tra cứu DB-trước/PubChem-sau.
  */
 import { sql } from "drizzle-orm";
-import { index, integer, pgTable, real, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, real, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 /** Bản sao gọn các thuộc tính PubChem đã tra cứu — tránh gọi lại PUG-REST cho cùng CID */
 export const compoundCache = pgTable(
@@ -18,6 +18,13 @@ export const compoundCache = pgTable(
     congThuc: text("cong_thuc"),
     khoiLuongMol: real("khoi_luong_mol"),
     iupac: text("iupac"),
+    smiles: text("smiles"),
+    xLogP: real("xlogp"),
+    co3D: boolean("co_3d"), // có conformer 3D không (record_type=3d) — null = chưa xác thực
+    laGiaoDuc: boolean("la_giao_duc").notNull().default(false), // thuộc CHAT_GIAO_DUC
+    lopHoc: text("lop_hoc"), // "8,9,11" — CHƯA seed, cần dữ liệu chương trình thật, không bịa
+    daXacThuc: boolean("da_xac_thuc").notNull().default(false), // đã gọi PubChem thành công thật
+    xacThucLuc: timestamp("xac_thuc_luc", { withTimezone: true }),
     capNhatLuc: timestamp("cap_nhat_luc").defaultNow().notNull(),
   },
   (t) => [uniqueIndex("compound_cache_cid_idx").on(t.cid)],
@@ -36,6 +43,15 @@ export const compoundAliases = pgTable(
     uniqueIndex("compound_aliases_alias_cid_idx").on(t.alias, t.cid),
     // Chỉ mục biểu thức — tsvector tính khi truy vấn/insert, không cần cột generated.
     index("compound_aliases_tsv_idx").using("gin", sql`to_tsvector('simple', ${t.alias})`),
+    // Không dấu — cho phép "nuoc" khớp "nước" mà không cần chuẩn hoá phía app.
+    // f_unaccent = wrapper IMMUTABLE của unaccent() (xem scripts/db-enable-extensions.ts —
+    // unaccent() gốc là STABLE, Postgres không cho phép trong index biểu thức).
+    index("compound_aliases_unaccent_tsv_idx").using(
+      "gin",
+      sql`to_tsvector('simple', f_unaccent(${t.alias}))`,
+    ),
+    // Fuzzy theo trigram — chịu được sai chính tả nhẹ ("axit sunfuaric" vẫn ra kết quả).
+    index("compound_aliases_trgm_idx").using("gin", sql`f_unaccent(lower(${t.alias})) gin_trgm_ops`),
   ],
 );
 
