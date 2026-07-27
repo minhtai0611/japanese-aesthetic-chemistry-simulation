@@ -1,0 +1,51 @@
+=== Đo lúc 2026-07-27T09:38:35+07:00 · base=https://japanese-aesthetic-chemistry-simula.vercel.app ===
+--- HTML (nén / thô) ---
+/                            nen=17097    tho=136934
+/bang-tuan-hoan              nen=23175    tho=217468
+/hop-chat                    nen=11239    tho=50342
+/hop-chat/caffeine           nen=11660    tho=54980
+/nguyen-to/au                nen=14197    tho=83600
+/thi-nghiem/chuyen-pha       nen=21044    tho=129556
+--- Header cache ---
+/                            HTTP/1.1 200 OK X-Nextjs-Prerender: 1 X-Vercel-Cache: HIT 
+/bang-tuan-hoan              HTTP/1.1 200 OK X-Nextjs-Prerender: 1 X-Vercel-Cache: HIT 
+/hop-chat/caffeine           HTTP/1.1 200 OK X-Nextjs-Prerender: 1 X-Vercel-Cache: HIT 
+/nguyen-to/au                HTTP/1.1 200 OK X-Nextjs-Prerender: 1 X-Vercel-Cache: HIT 
+/hop-chat/chlorophyll-a      HTTP/1.1 404 Not Found X-Nextjs-Prerender: 1 X-Vercel-Cache: HIT 
+--- TTFB (20 lần, /hop-chat/caffeine) ---
+p50=0.216s p95=0.266s
+--- JS + CSS + FONT trang chủ (nén) ---
+js_chunks=11 js=248549B css=11151B fonts=18 total=226368B
+--- Bẫy URL (chất gây nghiện trong sản phẩm giáo dục) ---
+  /hop-chat/love       200
+  /hop-chat/sunshine   200
+  /hop-chat/happy      200
+  /hop-chat/gold       200
+  /hop-chat/banana     404
+  /hop-chat/tree       404
+--- Ranh giới ký tự (binary search U+00FF) ---
+  ú U+00FA   → 404
+  ô U+00F4   → 404
+  ê U+00EA   → 404
+  ă U+0103   → 500
+  đ U+0111   → 500
+  ơ U+01A1   → 500
+  ư U+01B0   → 500
+  ố U+1ED1   → 500
+--- Sitemap ---
+bytes=20107 urls=133
+trạng thái từng URL hợp chất trong sitemap:
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/benzene                    200
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/caffeine                   200
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/aspirin                    200
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/glucose                    200
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/water                      200
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/ethanol                    200
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/chlorophyll-a              404
+  https://japanese-aesthetic-chemistry-simula.vercel.app/hop-chat/adenosine-triphosphate     200
+--- npm audit ---
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
