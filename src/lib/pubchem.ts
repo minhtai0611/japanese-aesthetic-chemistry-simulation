@@ -103,6 +103,19 @@ function doTinCayTuTrangThaiGoc(goc: string): NguyenTo["trangThaiCertainty"] {
   return /expected/i.test(goc) ? "du-doan" : "do-dac";
 }
 
+/**
+ * Chuẩn hoá mã màu CPK từ PubChem.
+ *
+ * PubChem cắt số 0 đứng đầu: Paladi có màu Jmol chuẩn #006985 nhưng API trả "6985".
+ * padStart(6, "F") biến nó thành "#FF6985" (hồng) — một mã màu không tồn tại trong
+ * bất kỳ chuẩn CPK/Jmol nào. Phải đệm bằng "0".
+ */
+export function mauCPKTu(raw: string | undefined): { hex: string; nguon: "pubchem" | "mac-dinh" } {
+  const v = (raw ?? "").trim();
+  if (!/^[0-9A-Fa-f]{1,6}$/.test(v)) return { hex: "#C8C4BC", nguon: "mac-dinh" };
+  return { hex: `#${v.toUpperCase().padStart(6, "0")}`, nguon: "pubchem" };
+}
+
 let demNguyenTo = 0;
 
 export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
@@ -123,7 +136,7 @@ export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
       tenEn: c[viTri("Name")] ?? "",
       tenVi: TEN_VI[so] ?? c[viTri("Name")] ?? "",
       khoiLuong: soHoacNull(c[viTri("AtomicMass")]),
-      mauCPK: `#${(c[viTri("CPKHexColor")] || "C8C4BC").padStart(6, "F")}`,
+      mauCPK: mauCPKTu(c[viTri("CPKHexColor")]).hex,
       cauHinhElectron: c[viTri("ElectronConfiguration")] ?? "",
       doAmDien: soHoacNull(c[viTri("Electronegativity")]),
       banKinhPm: soHoacNull(c[viTri("AtomicRadius")]),
