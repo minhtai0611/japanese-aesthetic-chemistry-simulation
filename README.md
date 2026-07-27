@@ -45,6 +45,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run test:cov` | Run tests with coverage |
 | `npm run audit:urls` | Crawl the alias/compound/element URL surface, report 404s/5xx |
 | `npm run db:push` | Push the Drizzle schema to Postgres |
+| `npx tsx scripts/db-enable-extensions.ts` | One-time: enable `unaccent`/`pg_trgm` on a new Postgres (run before `db:push`) |
+| `npx tsx scripts/seed-compounds.ts` | Seed `compound_cache`/`compound_aliases` from the real PubChem API (see `docs/tim-kiem.md`) |
 
 ## Project structure
 
@@ -60,12 +62,15 @@ Open [http://localhost:3000](http://localhost:3000).
 - `src/lib/electron-config.ts` — noble-gas-notation electron shell expansion, used by `pubchem.ts`.
 - `src/lib/nguyen-to.ts` — element name/translation tables.
 - `src/lib/site.ts` — site metadata/nav.
-- `src/lib/hop-chat-noi-bat.ts`, `src/lib/phong-thi-nghiem.ts`, `src/lib/slug.ts` — shared constants/helpers for the compound permalinks and lab rooms.
-- `src/db/schema.ts` — Drizzle schema for the internal search/cache layer (see `docs/tim-kiem.md`; schema-ready, not yet wired to a live database in this environment).
+- `src/lib/hop-chat-noi-bat.ts`, `src/lib/phong-thi-nghiem.ts`, `src/lib/slug.ts`, `src/lib/dinh-danh-chat.ts` — shared constants/helpers for the compound permalinks and lab rooms.
+- `src/lib/tim-kiem.ts` — Vietnamese diacritic-insensitive + typo-tolerant compound search over Postgres (`to_tsvector`/`pg_trgm`, no AI); `/api/goi-y` tries this first, falls back to PubChem autocomplete if the DB is unreachable or has no match.
+- `src/lib/dong-bo-hop-chat.ts` — syncs `compound_cache`/`compound_aliases` from real PubChem data; shared by `scripts/seed-compounds.ts` (manual) and `/api/cron/sync` (scheduled, see `vercel.json`).
+- `src/app/quan-tri/tu-khoa-thieu/` — token-gated (`QUAN_TRI_TOKEN`) dashboard of search queries with no results, to grow `ALIAS_HOP_CHAT` from real usage instead of guessing.
+- `src/db/schema.ts` — Drizzle schema for the internal search/cache layer (see `docs/tim-kiem.md`).
 
 ## Deployment
 
-Hosted on [Vercel](https://vercel.com) (Hobby tier) with a [Neon](https://neon.tech) Postgres database. Pushes to `master` auto-deploy.
+Hosted on [Vercel](https://vercel.com) (Hobby tier) with a [Neon](https://neon.tech) Postgres database. Pushes to `master` auto-deploy. `vercel.json` schedules a weekly `/api/cron/sync` re-sync; set `CRON_SECRET` so only Vercel Cron (or someone who knows the secret) can trigger it.
 
 ## License
 
