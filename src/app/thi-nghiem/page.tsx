@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Droplets, FlaskConical, Thermometer } from "lucide-react";
+import { ArrowUpRight, Droplets, FlaskConical, Scale, Thermometer } from "lucide-react";
 import HienDan from "@/components/hien-dan";
 import { CAC_PHONG } from "@/lib/phong-thi-nghiem";
 
 export const metadata: Metadata = {
-  title: "Phòng thí nghiệm ảo — Chuẩn độ, pha loãng, chuyển pha",
+  title: "Phòng thí nghiệm ảo — Chuẩn độ, pha loãng, chuyển pha, cân bằng",
   description:
-    "Ba phòng thí nghiệm ảo tương tác bằng tiếng Việt: pha chế & pha loãng dung dịch với khối lượng mol thật, chuẩn độ axit–bazơ vẽ đường cong pH thời gian thực, và buồng chuyển pha quanh điểm nóng chảy–điểm sôi thực nghiệm từ PubChem.",
+    "Bốn phòng thí nghiệm ảo tương tác bằng tiếng Việt: pha chế & pha loãng dung dịch với khối lượng mol thật, chuẩn độ axit–bazơ vẽ đường cong pH thời gian thực, buồng chuyển pha quanh điểm nóng chảy–điểm sôi thực nghiệm từ PubChem, và cân bằng phương trình bằng đại số tuyến tính.",
   alternates: { canonical: "/thi-nghiem" },
 };
 
-const ICON = { "pha-che": Droplets, "chuan-do": FlaskConical, "chuyen-pha": Thermometer } as const;
+const ICON = {
+  "pha-che": Droplets,
+  "chuan-do": FlaskConical,
+  "chuyen-pha": Thermometer,
+  "can-bang": Scale,
+} as const;
 
 export default function TrangThiNghiem() {
   return (
@@ -19,7 +24,7 @@ export default function TrangThiNghiem() {
       <HienDan>
         <p className="chi-muc mb-4 text-shu-sang">実験室 — Virtual Laboratory</p>
         <h1 className="max-w-3xl font-display text-4xl font-black leading-tight sm:text-6xl">
-          Ba phòng <em className="text-shu-sang">thí nghiệm</em>, một niềm tin khoa học
+          Bốn phòng <em className="text-shu-sang">thí nghiệm</em>, một niềm tin khoa học
         </h1>
         <p className="mt-6 max-w-2xl leading-relaxed text-washi-mo">
           Mỗi mô phỏng dưới đây được xây trên hai cột trụ: <strong className="text-washi">số liệu thật</strong> từ
@@ -28,7 +33,7 @@ export default function TrangThiNghiem() {
         </p>
       </HienDan>
 
-      <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {CAC_PHONG.map((p, i) => {
           const Icon = ICON[p.slug];
           return (
