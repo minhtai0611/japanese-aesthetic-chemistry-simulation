@@ -133,6 +133,9 @@ body {
 .nut-chu {
   position: relative;
   isolation: isolate;
+  /* washi (#f2ead9) trên nền --color-shu chỉ đạt 3,9:1 (WCAG cần ≥ 4,5:1
+     cho chữ thường) — dùng trắng thuần cho mọi nút CTA nền shu. */
+  color: #fff;
 }
 .nut-chu::before {
   content: "";
@@ -183,7 +186,7 @@ input[type="range"] {
   left: 1rem;
   z-index: 100;
   background: var(--color-shu);
-  color: var(--color-washi);
+  color: #fff;
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-size: 0.875rem;
