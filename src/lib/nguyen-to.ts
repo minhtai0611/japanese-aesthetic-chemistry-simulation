@@ -100,10 +100,10 @@ export const NHAN_KHOI: Record<KhoiKinh, string> = {
 
 /** Bảng màu khối — bảng màu Nhật: chu-hồng, lam-nhạt, kim, xanh-tokiwa */
 export const MAU_KHOI: Record<KhoiKinh, string> = {
-  s: "#d1501f",
-  p: "#3d5f9e",
+  s: "#e06534",
+  p: "#6b8ecb",
   d: "#b98c36",
-  f: "#3e7d6b",
+  f: "#5aa892",
 };
 
 export const DICH_GIA_DINH: Record<string, string> = {

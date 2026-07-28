@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FlaskConical, Menu, X } from "lucide-react";
 import { DIEU_HUONG } from "@/lib/site";
+import NutCheDoTietKiem from "@/components/che-do-tiet-kiem";
+import NutChuyenDong from "@/components/nut-chuyen-dong";
 
 function DauAnEnso({ className = "" }: { className?: string }) {
   return (
@@ -51,7 +53,7 @@ export default function DieuHuong() {
       }`}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:px-8">
-        <Link href="/" className="group flex items-center gap-3" aria-label="KAGAKU — về trang chủ">
+        <Link href="/" className="group flex items-center gap-3">
           <DauAnEnso className="h-10 w-10 transition-transform duration-700 group-hover:rotate-[200deg]" />
           <span className="flex flex-col leading-none">
             <span className="font-display text-lg font-bold tracking-[0.18em] text-washi">
@@ -84,9 +86,11 @@ export default function DieuHuong() {
               </Link>
             );
           })}
+          <NutChuyenDong className="ml-3" />
+          <NutCheDoTietKiem className="ml-2" />
           <Link
             href="/thi-nghiem"
-            className="nut-chu ml-4 inline-flex items-center gap-2 rounded-full bg-shu px-5 py-2.5 text-sm font-semibold text-washi shadow-[0_0_28px_rgba(214,59,31,0.35)] transition-transform hover:scale-[1.04] active:scale-95"
+            className="nut-chu ml-3 inline-flex items-center gap-2 rounded-full bg-shu px-5 py-2.5 text-sm font-semibold shadow-[0_0_28px_rgba(214,59,31,0.35)] transition-transform hover:scale-[1.04] active:scale-95"
           >
             <FlaskConical size={16} strokeWidth={2.2} />
             Vào phòng thí nghiệm
@@ -140,6 +144,10 @@ export default function DieuHuong() {
                   </Link>
                 </motion.div>
               ))}
+            </div>
+            <div className="flex flex-wrap gap-2 px-8 pb-6">
+              <NutChuyenDong />
+              <NutCheDoTietKiem />
             </div>
             <p className="px-8 pb-10 text-xs leading-relaxed text-washi-mo">
               Dữ liệu hóa học đồng bộ từ PubChem PUG-REST — NCBI, cache có kiểm soát.

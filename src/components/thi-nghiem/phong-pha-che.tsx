@@ -111,7 +111,7 @@ export default function PhongPhaChe({
               key={k}
               onClick={() => setCheDo(k)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-                cheDo === k ? "bg-shu text-washi" : "border border-washi/15 text-washi-mo hover:border-washi/40"
+                cheDo === k ? "bg-shu text-white" : "border border-washi/15 text-washi-mo hover:border-washi/40"
               }`}
             >
               {nhan}
@@ -189,7 +189,7 @@ export default function PhongPhaChe({
               <p className="chi-muc mb-3 text-shu-sang">Sổ tay tính toán · n = m/M</p>
               <p>n = C × V = {c.toFixed(2)} mol/L × {(v / 1000).toFixed(3)} L = <b className="text-washi">{(c * v / 1000).toFixed(4)} mol</b></p>
               <p>m = n × M = {(c * v / 1000).toFixed(4)} × {M ?? "…"} g/mol</p>
-              <p className="mt-2 text-xl font-bold text-shu-sang">
+              <p className="mt-2 text-xl font-bold text-shu-sang" aria-live="polite">
                 Cân {m ? m.toFixed(2) : "…"} g {hopChat ? congThucCoChuSo(hopChat.congThuc) : ""}
               </p>
             </div>
@@ -210,7 +210,7 @@ export default function PhongPhaChe({
               <p className="chi-muc mb-3 text-shu-sang">Định luật pha loãng · C₁V₁ = C₂V₂</p>
               <p>{c1.toFixed(2)} M × {v1Giai?.toFixed(1) ?? "?"} mL = {c2.toFixed(2)} M × {v2Giai?.toFixed(1) ?? "?"} mL</p>
               {v1Giai !== null && v2Giai !== null && (
-                <p className="mt-2 text-lg font-bold text-shu-sang">
+                <p className="mt-2 text-lg font-bold text-shu-sang" aria-live="polite">
                   Hút {v1Giai.toFixed(1)} mL dung dịch gốc → định mức nước cất tới {v2Giai.toFixed(0)} mL
                 </p>
               )}
@@ -331,6 +331,7 @@ function DieuKhienTruot({
         onChange={(e) => khiSua(Number(e.target.value))}
         className="w-full cursor-ew-resize disabled:opacity-30"
         aria-label={nhan}
+        aria-valuetext={laAn ? "Ẩn số — tính từ các giá trị khác" : mauHien}
       />
     </div>
   );

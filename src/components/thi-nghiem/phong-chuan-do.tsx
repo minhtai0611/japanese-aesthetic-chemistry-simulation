@@ -82,7 +82,7 @@ export default function PhongChuanDo() {
               Axit mạnh {ca.toFixed(2)} M ({va} mL) chuẩn bằng bazơ mạnh {cb.toFixed(2)} M
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-right" aria-live="polite">
             <p className="font-mono text-4xl font-bold tabular-nums" style={{ color: pH >= 8.2 ? "#ff7fa8" : "#f2ead9" }}>
               {pH.toFixed(2)}
             </p>
@@ -147,12 +147,13 @@ export default function PhongChuanDo() {
             type="range" min={0} max={vToiDa} step={vToiDa / 400} value={vb}
             onChange={(e) => { setChay(false); setVb(Number(e.target.value)); }}
             className="min-w-40 flex-1 cursor-ew-resize" aria-label="Thể tích bazơ đã nhỏ"
+            aria-valuetext={`${vb.toFixed(1)} mililít`}
           />
           <span className="font-mono text-sm tabular-nums text-kin">{vb.toFixed(1)} mL</span>
           <div className="flex gap-2">
             <button
               onClick={() => setChay((v) => !v)}
-              className="flex items-center gap-2 rounded-full bg-shu px-4 py-2 text-xs font-semibold transition-transform hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 rounded-full bg-shu px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
             >
               {chay ? <Pause size={13} /> : <Play size={13} />} {chay ? "Tạm dừng" : "Mở khóa burette"}
             </button>
@@ -245,6 +246,7 @@ export default function PhongChuanDo() {
                 type="range" min={s.min} max={s.max} step={s.step} value={s.v}
                 onChange={(e) => s.dat(Number(e.target.value))}
                 className="w-full cursor-ew-resize" aria-label={s.nhan}
+                aria-valuetext={s.hien}
               />
             </div>
           ))}

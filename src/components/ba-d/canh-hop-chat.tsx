@@ -102,7 +102,13 @@ export default function CanhHopChat({
 
   return (
     <div className="absolute inset-0 mo-dan">
+      {/* frameloop="demand" khi không tự xoay: dừng vòng lặp render liên tục
+          (tôn trọng prefers-reduced-motion mặc định qua trinh-pham-3d.tsx).
+          OrbitControls (drei) tự gọi invalidate() khi người dùng kéo/thả, nên
+          vẫn tương tác được bình thường ở chế độ demand — chỉ mất phần
+          TỰ xoay khi không ai chạm vào. */}
       <Canvas
+        frameloop={tuXoay ? "always" : "demand"}
         camera={camBanDau}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}

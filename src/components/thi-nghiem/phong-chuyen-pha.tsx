@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Snowflake, Waves, Wind } from "lucide-react";
 import type { NguyenTo } from "@/lib/pubchem";
+import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
+import { useCheDoTietKiem } from "@/components/che-do-tiet-kiem";
 
 interface Hat {
   x: number; y: number; vx: number; vy: number; gx: number; gy: number;
@@ -13,6 +15,7 @@ function useDongCoHat(soHat: number, trangThai: "ran" | "long" | "khi", rung: nu
   const thamChieuCanvas = useRef<HTMLCanvasElement | null>(null);
   const cacHat = useRef<Hat[]>([]);
   const cauHinh = useRef({ trangThai: "ran" as "ran" | "long" | "khi", rung: 0.4 });
+  const giam = useGiamChuyenDong();
 
   // Cập nhật cấu hình động cơ hạt ngay trong hook sở hữu ref này — tránh mutate
   // một giá trị được trả ra ngoài cho component gọi (react-hooks/immutability).
@@ -45,6 +48,21 @@ function useDongCoHat(soHat: number, trangThai: "ran" | "long" | "khi", rung: nu
       });
     };
 
+    // Vẽ một khung tĩnh tại vị trí lưới gốc (gx, gy) — dùng khi
+    // prefers-reduced-motion để tránh dao động sin/cos liên tục.
+    const veTinh = () => {
+      boiCanh.clearRect(0, 0, khung.w, khung.h);
+      for (const h of cacHat.current) {
+        boiCanh.beginPath();
+        boiCanh.arc(h.gx, h.gy, 4.4, 0, Math.PI * 2);
+        boiCanh.fillStyle = "rgba(242,234,217,0.92)";
+        boiCanh.fill();
+        boiCanh.lineWidth = 1.6;
+        boiCanh.strokeStyle = "rgba(214,59,31,0.55)";
+        boiCanh.stroke();
+      }
+    };
+
     const doiKichThuoc = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const hop = canvas.getBoundingClientRect();
@@ -54,10 +72,18 @@ function useDongCoHat(soHat: number, trangThai: "ran" | "long" | "khi", rung: nu
       canvas.height = hop.height * dpr;
       boiCanh.setTransform(dpr, 0, 0, dpr, 0, 0);
       dungHat();
+      if (giam) veTinh();
     };
     doiKichThuoc();
     const quanSat = new ResizeObserver(doiKichThuoc);
     quanSat.observe(canvas);
+
+    if (giam) {
+      // Không có nhu cầu quan sát hiển thị/chạy vòng lặp — chỉ một khung tĩnh.
+      return () => {
+        quanSat.disconnect();
+      };
+    }
 
     const quanSatAn = new IntersectionObserver(([e]) => (chay = e.isIntersecting));
     quanSatAn.observe(canvas);
@@ -109,7 +135,7 @@ function useDongCoHat(soHat: number, trangThai: "ran" | "long" | "khi", rung: nu
       quanSat.disconnect();
       quanSatAn.disconnect();
     };
-  }, [soHat]);
+  }, [soHat, giam]);
 
   return { thamChieuCanvas };
 }
@@ -125,6 +151,7 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
     () => nguyenTo.filter((n) => n.nongChayK !== null && n.soiK !== null && n.soiK > n.nongChayK),
     [nguyenTo],
   );
+  const boSoDayDu = useMemo(() => new Set(coDayDu.map((n) => n.so)), [coDayDu]);
   const [so, setSo] = useState(26); // Sắt
   const nt = coDayDu.find((n) => n.so === so) ?? coDayDu[0];
 
@@ -148,7 +175,8 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
         : "khi";
   const rung = Math.min(nhietDo / Math.max(nt?.nongChayK ?? 1, 1), 2);
 
-  const soHat = 96;
+  const [tietKiem] = useCheDoTietKiem();
+  const soHat = tietKiem ? 24 : 96;
   const { thamChieuCanvas } = useDongCoHat(soHat, trangThai, rung);
 
   const BieuTuong = BIEU_TUONG[trangThai].icon;
@@ -165,7 +193,7 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
               {nt?.tenVi} <span className="text-shu-sang">{nt?.kyHieu}</span>
             </h3>
           </div>
-          <div className="text-right">
+          <div className="text-right" aria-live="polite">
             <p className="font-mono text-4xl font-bold tabular-nums" style={{ color: BIEU_TUONG[trangThai].mau }}>
               {nhietDo.toLocaleString("vi-VN")} K
             </p>
@@ -182,6 +210,7 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
             type="range" min={0} max={tToiDa} step={1} value={Math.min(nhietDo, tToiDa)}
             onChange={(e) => setNhietDo(Number(e.target.value))}
             className="w-full cursor-ew-resize" aria-label="Nhiệt độ buồng (Kelvin)"
+            aria-valuetext={`${nhietDo.toLocaleString("vi-VN")} kelvin, ${denC(nhietDo)}, trạng thái ${BIEU_TUONG[trangThai].Ten.toLowerCase()}`}
           />
           {/* Thước chuyển pha */}
           <div className="relative mt-3 h-2 rounded-full bg-gradient-to-r from-[#7fa0d8] via-[#c9a35a] to-[#d63b1f]">
@@ -229,17 +258,22 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
               className="w-full appearance-none rounded-xl border border-washi/15 bg-sumi-nhat px-4 py-3 text-sm outline-none transition-colors focus:border-shu-sang"
               aria-label="Chọn nguyên tố"
             >
-              {coDayDu.map((n) => (
-                <option key={n.so} value={n.so} className="bg-sumi-nhat">
-                  {n.so}. {n.tenVi} ({n.kyHieu})
-                </option>
-              ))}
+              {nguyenTo.map((n) => {
+                const dayDu = boSoDayDu.has(n.so);
+                return (
+                  <option key={n.so} value={n.so} disabled={!dayDu} className="bg-sumi-nhat">
+                    {n.so}. {n.tenVi} ({n.kyHieu})
+                    {!dayDu && " — PubChem chưa có điểm nóng chảy/sôi đo được"}
+                  </option>
+                );
+              })}
             </select>
             <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-washi-mo" />
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-washi-mo">
-            {coDayDu.length} nguyên tố có đủ số liệu nóng chảy &amp; sôi được đưa vào buồng. Các nguyên tố siêu
-            nặng tổng hợp bị loại vì PubChem chưa có số liệu đo.
+            {coDayDu.length}/{nguyenTo.length} nguyên tố có đủ số liệu nóng chảy &amp; sôi đo được từ PubChem, mô
+            phỏng được trong buồng. {nguyenTo.length - coDayDu.length} nguyên tố còn lại (chủ yếu là siêu nặng
+            tổng hợp) hiện trong danh sách nhưng bị khoá chọn — chưa từng được đo ở trạng thái khối.
           </p>
         </div>
 
