@@ -3,17 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Pause, Play, RotateCcw } from "lucide-react";
-
-/** pH dung dịch axit mạnh–bazơ mạnh từ số mol & Kw = 1e-14 (25 °C) — toán thuần, không suy diễn */
-function pHChuanDo(Ca: number, Va: number, Cb: number, Vb: number): number {
-  const molH = Ca * Va;       // mmol H⁺
-  const molOH = Cb * Vb;      // mmol OH⁻
-  const tong = Va + Vb;       // mL  (mmol/mL === mol/L)
-  const du = molH - molOH;
-  if (Math.abs(du) / tong < 1e-9) return 7;
-  if (du > 0) return -Math.log10(du / tong);
-  return 14 + Math.log10(-du / tong);
-}
+import { pHChuanDo, laDiemTuongDuong } from "@/lib/hoa-hoc/chuan-do";
+import NutLuuSoTay from "@/components/so-tay/nut-luu-so-tay";
 
 function mauLongTheoPh(pH: number): string {
   if (pH < 8.2) return "#cfdde6"; // phenolphtalein không màu
@@ -92,7 +83,7 @@ export default function PhongChuanDo() {
               Axit mạnh {ca.toFixed(2)} M ({va} mL) chuẩn bằng bazơ mạnh {cb.toFixed(2)} M
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-right" aria-live="polite">
             <p className="font-mono text-4xl font-bold tabular-nums" style={{ color: pH >= 8.2 ? "#ff7fa8" : "#f2ead9" }}>
               {pH.toFixed(2)}
             </p>
@@ -157,12 +148,13 @@ export default function PhongChuanDo() {
             type="range" min={0} max={vToiDa} step={vToiDa / 400} value={vb}
             onChange={(e) => { setChay(false); setVb(Number(e.target.value)); }}
             className="min-w-40 flex-1 cursor-ew-resize" aria-label="Thể tích bazơ đã nhỏ"
+            aria-valuetext={`${vb.toFixed(1)} mililít`}
           />
           <span className="font-mono text-sm tabular-nums text-kin">{vb.toFixed(1)} mL</span>
           <div className="flex gap-2">
             <button
               onClick={() => setChay((v) => !v)}
-              className="flex items-center gap-2 rounded-full bg-shu px-4 py-2 text-xs font-semibold transition-transform hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 rounded-full bg-shu px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
             >
               {chay ? <Pause size={13} /> : <Play size={13} />} {chay ? "Tạm dừng" : "Mở khóa burette"}
             </button>
@@ -231,12 +223,19 @@ export default function PhongChuanDo() {
             Phenolphtalein: không màu pH &lt; 8,2 → hồng cánh sen pH &gt; 10
           </p>
           <p className="mt-2 text-center text-sm font-medium" style={{ color: pH >= 8.2 ? "#ff7fa8" : "#cfc6b2" }}>
-            {Math.abs(vTuongDuong - vb) < vToiDa / 120
+            {laDiemTuongDuong(ca, va, cb, vb)
               ? "ĐIỂM TƯƠNG ĐƯƠNG — dung dịch trung tính, pH = 7"
               : vb < vTuongDuong
                 ? "Trước điểm tương đương — dư axit"
                 : "Quá điểm tương đương — dư bazơ"}
           </p>
+          <NutLuuSoTay
+            className="mt-4"
+            loaiPhong="chuan-do"
+            tieuDe={`Chuẩn độ ${ca.toFixed(2)} M HCl bằng ${cb.toFixed(2)} M NaOH`}
+            thamSo={{ Ca: ca, Cb: cb, Va: va }}
+            ketQua={{ Vb: vb, pH, laDiemTuongDuong: laDiemTuongDuong(ca, va, cb, vb) }}
+          />
         </div>
 
         {/* Tham số */}
@@ -255,6 +254,7 @@ export default function PhongChuanDo() {
                 type="range" min={s.min} max={s.max} step={s.step} value={s.v}
                 onChange={(e) => s.dat(Number(e.target.value))}
                 className="w-full cursor-ew-resize" aria-label={s.nhan}
+                aria-valuetext={s.hien}
               />
             </div>
           ))}

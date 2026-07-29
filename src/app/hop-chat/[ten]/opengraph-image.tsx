@@ -1,14 +1,13 @@
 import { ImageResponse } from "next/og";
-import { layHopChat } from "@/lib/pubchem";
-import { boSlugHopChat } from "@/lib/slug";
+import { layHopChatTheoBienThe } from "@/lib/pubchem";
+import { cacBienTheTraCuu } from "@/lib/dinh-danh-chat";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpengraphImage({ params }: { params: Promise<{ ten: string }> }) {
   const { ten } = await params;
-  const tenTruyVan = boSlugHopChat(ten);
-  const hopChat = await layHopChat(tenTruyVan);
+  const { tuKhoaDung: tenTruyVan, hopChat } = await layHopChatTheoBienThe(cacBienTheTraCuu(ten));
 
   return new ImageResponse(
     (

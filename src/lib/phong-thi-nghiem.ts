@@ -24,6 +24,14 @@ export const CAC_PHONG = [
       "Đặt một nguyên tố vào lò. Khi nhiệt độ chạm mốc nóng chảy thật của nó — ví dụ sắt ở 1 811 K — mạng tinh thể sụp đổ thành dòng chảy; qua điểm sôi, từng hạt giành lấy tự do. Hai mốc nhiệt đều là số liệu đo từ PubChem.",
     congThuc: "T < T_nc → rắn · T_nc ≤ T < T_s → lỏng · T ≥ T_s → khí",
   },
+  {
+    slug: "can-bang",
+    kanji: "均衡",
+    nhan: "Cân bằng phương trình",
+    moTa:
+      "Gõ chất phản ứng và sản phẩm — máy dựng ma trận nguyên tố rồi khử Gauss-Jordan trên số hữu tỉ để tìm bộ hệ số nguyên dương nhỏ nhất. Toán tất định 100%, không đoán, không AI.",
+    congThuc: "A·x = 0 · khử Gauss trên ℚ · BCNN/UCLN → nghiệm nguyên nhỏ nhất",
+  },
 ] as const;
 
 export type SlugPhong = (typeof CAC_PHONG)[number]["slug"];
