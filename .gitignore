@@ -39,3 +39,9 @@ docs/metrics-raw.txt
 
 # Test coverage output
 /coverage
+
+# Playwright E2E output
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
