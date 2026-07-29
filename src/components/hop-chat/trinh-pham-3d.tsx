@@ -11,7 +11,7 @@ import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
 import { slugHoaHopChat } from "@/lib/slug";
 import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
 import { useCheDoTietKiem } from "@/components/che-do-tiet-kiem";
-import { PhanTu2D, coWebGL } from "@/components/ba-d/phan-tu-2d";
+import { PhanTu2D, useHoTroWebGL } from "@/components/ba-d/phan-tu-2d";
 import { useBanMauNguyenTo } from "@/components/ba-d/mat-phan-tu";
 
 const CanhHopChat = dynamic(() => import("@/components/ba-d/canh-hop-chat"), {
@@ -48,10 +48,7 @@ export default function TrinhPham3D({
   const [daCopy, setDaCopy] = useState(false);
   const demNhap = useRef<NodeJS.Timeout | null>(null);
   const [tietKiem] = useCheDoTietKiem();
-  const [hoTroWebGL, setHoTroWebGL] = useState(true);
-  useEffect(() => {
-    setHoTroWebGL(coWebGL());
-  }, []);
+  const hoTroWebGL = useHoTroWebGL();
   // Chế độ tiết kiệm hoặc máy không có WebGL → dùng sơ đồ SVG 2D thay Canvas 3D.
   const dung2D = tietKiem || !hoTroWebGL;
   const banMau = useBanMauNguyenTo();
