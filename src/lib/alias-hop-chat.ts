@@ -43,6 +43,7 @@ export const ALIAS_HOP_CHAT: Readonly<Record<string, string>> = {
   "cacbonic": "carbon dioxide",
   "đá khô": "carbon dioxide",
   "da kho": "carbon dioxide",
+  "axit sunfuric": "sulfuric acid",
 };
 
 function chuanHoaTuKhoa(s: string): string {

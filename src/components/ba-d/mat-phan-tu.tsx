@@ -53,7 +53,7 @@ interface KhucLienKet {
   lech: THREE.Vector3 | null;
 }
 
-function mauCua(banMau: Map<number, MauNguyenTo> | null, so: number): string {
+export function mauCua(banMau: Map<number, MauNguyenTo> | null, so: number): string {
   if (banMau?.get(so)?.mauCPK) return banMau.get(so)!.mauCPK;
   if (so === 1) return "#e8e2d4";
   return "#c9a35a";

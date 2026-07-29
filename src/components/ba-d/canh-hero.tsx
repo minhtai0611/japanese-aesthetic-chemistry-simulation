@@ -7,6 +7,7 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
 import type { HopChat3D } from "@/lib/pubchem";
+import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
 
 /** Hàm băm quyết định (pure) thay Math.random — cùng seed luôn cho cùng kết quả */
 function ngauNhienGia(hat: number): number {
@@ -152,9 +153,12 @@ function CameraRu() {
 }
 
 export default function CanhHero() {
+  const giam = useGiamChuyenDong();
+
   return (
     <div className="absolute inset-0" aria-hidden>
       <Canvas
+        frameloop={giam ? "demand" : "always"}
         camera={{ position: [0, 0.4, 8.4], fov: 42 }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
@@ -170,10 +174,12 @@ export default function CanhHero() {
         </Suspense>
         <CameraRu />
         <GiaiPhongContext />
-        <EffectComposer>
-          <Bloom mipmapBlur intensity={0.85} luminanceThreshold={0.18} luminanceSmoothing={0.34} radius={0.75} />
-          <Vignette eskil={false} offset={0.24} darkness={0.72} />
-        </EffectComposer>
+        {!giam && (
+          <EffectComposer>
+            <Bloom mipmapBlur intensity={0.85} luminanceThreshold={0.18} luminanceSmoothing={0.34} radius={0.75} />
+            <Vignette eskil={false} offset={0.24} darkness={0.72} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );

@@ -17,19 +17,78 @@ import { dichTenHopChat, goiYTenTiengViet } from "./alias-hop-chat";
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
 const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
 
-async function goiPug<T>(duong: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${PUG}${duong}`, {
-      next: { revalidate: TUAN },
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { Fault?: unknown } & T;
-    if (json && typeof json === "object" && "Fault" in json) return null;
-    return json;
-  } catch {
-    return null;
+/** Ba trạng thái khác nhau, KHÔNG được gộp làm một */
+export type KetQuaPug<T> =
+  | { loai: "co"; duLieu: T }
+  | { loai: "khong-co" } // PubChem khẳng định không tồn tại
+  | { loai: "loi"; thongDiep: string }; // không hỏi được PubChem
+
+/** Semaphore toàn cục: tôn trọng chính sách <= 5 req/s của máy chủ công cộng NCBI */
+let dangChay = 0;
+const HANG_DOI: (() => void)[] = [];
+const TRAN = 4;
+
+async function xinLuot(): Promise<void> {
+  if (dangChay < TRAN) {
+    dangChay++;
+    return;
   }
+  await new Promise<void>((r) => HANG_DOI.push(r));
+  dangChay++;
+}
+
+function traLuot() {
+  dangChay--;
+  HANG_DOI.shift()?.();
+}
+
+/**
+ * Gọi PubChem PUG-REST, phân biệt rõ 3 trạng thái: có dữ liệu, PubChem khẳng
+ * định không có (404 hoặc {Fault}), hoặc không hỏi được (mạng lỗi, timeout,
+ * 5xx/429 phía họ). Bản `goiPug` cũ gộp cả ba thành `null` — đó là nguyên
+ * nhân gốc khiến một cú rate-limit lúc build từng bị hiểu nhầm thành "chất
+ * không tồn tại" và 404 nướng cứng vào bản tĩnh.
+ */
+export async function goiPugAnToan<T>(duong: string, revalidate = TUAN): Promise<KetQuaPug<T>> {
+  await xinLuot();
+  try {
+    for (let lan = 0; lan <= 2; lan++) {
+      try {
+        const res = await fetch(`${PUG}${duong}`, {
+          next: { revalidate },
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+
+        // 404 từ PubChem = khẳng định không tồn tại
+        if (res.status === 404) return { loai: "khong-co" };
+        // 5xx / 429 = lỗi phía họ ⇒ retry
+        if (res.status >= 500 || res.status === 429) throw new Error(`upstream ${res.status}`);
+        if (!res.ok) return { loai: "loi", thongDiep: `HTTP ${res.status}` };
+
+        const json = (await res.json()) as { Fault?: unknown } & T;
+        // PubChem trả HTTP 200 kèm {Fault} cho truy vấn sai — GIỮ guard này
+        if (json && typeof json === "object" && "Fault" in json) return { loai: "khong-co" };
+        return { loai: "co", duLieu: json as T };
+      } catch (e) {
+        if (lan === 2) {
+          return { loai: "loi", thongDiep: e instanceof Error ? e.message : String(e) };
+        }
+        await new Promise((s) => setTimeout(s, 300 * 2 ** lan)); // backoff mũ
+      }
+    }
+    return { loai: "loi", thongDiep: "hết lượt thử" };
+  } finally {
+    traLuot();
+  }
+}
+
+/** Giữ chữ ký cũ cho code chưa migrate sang goiPugAnToan — nhưng LOG rõ khi nuốt lỗi */
+async function goiPug<T>(duong: string, revalidate = TUAN): Promise<T | null> {
+  const kq = await goiPugAnToan<T>(duong, revalidate);
+  if (kq.loai === "co") return kq.duLieu;
+  if (kq.loai === "loi") console.error(`[pubchem] ${duong}: ${kq.thongDiep}`);
+  return null;
 }
 
 /* ---------------------------------- NGUYÊN TỐ ---------------------------------- */
@@ -103,6 +162,19 @@ function doTinCayTuTrangThaiGoc(goc: string): NguyenTo["trangThaiCertainty"] {
   return /expected/i.test(goc) ? "du-doan" : "do-dac";
 }
 
+/**
+ * Chuẩn hoá mã màu CPK từ PubChem.
+ *
+ * PubChem cắt số 0 đứng đầu: Paladi có màu Jmol chuẩn #006985 nhưng API trả "6985".
+ * padStart(6, "F") biến nó thành "#FF6985" (hồng) — một mã màu không tồn tại trong
+ * bất kỳ chuẩn CPK/Jmol nào. Phải đệm bằng "0".
+ */
+export function mauCPKTu(raw: string | undefined): { hex: string; nguon: "pubchem" | "mac-dinh" } {
+  const v = (raw ?? "").trim();
+  if (!/^[0-9A-Fa-f]{1,6}$/.test(v)) return { hex: "#C8C4BC", nguon: "mac-dinh" };
+  return { hex: `#${v.toUpperCase().padStart(6, "0")}`, nguon: "pubchem" };
+}
+
 let demNguyenTo = 0;
 
 export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
@@ -123,7 +195,7 @@ export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
       tenEn: c[viTri("Name")] ?? "",
       tenVi: TEN_VI[so] ?? c[viTri("Name")] ?? "",
       khoiLuong: soHoacNull(c[viTri("AtomicMass")]),
-      mauCPK: `#${(c[viTri("CPKHexColor")] || "C8C4BC").padStart(6, "F")}`,
+      mauCPK: mauCPKTu(c[viTri("CPKHexColor")]).hex,
       cauHinhElectron: c[viTri("ElectronConfiguration")] ?? "",
       doAmDien: soHoacNull(c[viTri("Electronegativity")]),
       banKinhPm: soHoacNull(c[viTri("AtomicRadius")]),
@@ -213,6 +285,22 @@ function duongDanHopChat(tuKhoa: string): string {
   return `name/${encodeURIComponent(dichTenHopChat(t))}`;
 }
 
+/**
+ * Thử lần lượt các biến thể tra cứu của một slug (xem `cacBienTheTraCuu` trong
+ * dinh-danh-chat.ts) cho tới khi PubChem trả về dữ liệu — dừng ở biến thể đầu
+ * tiên khớp. Dùng chung cho cả trang hợp chất và ảnh OG, tránh mỗi nơi tự thử
+ * một biến thể khác nhau rồi lệch kết quả.
+ */
+export async function layHopChatTheoBienThe(
+  cacBienThe: readonly string[],
+): Promise<{ tuKhoaDung: string; hopChat: HopChat | null }> {
+  for (const bt of cacBienThe) {
+    const hopChat = await layHopChat(bt);
+    if (hopChat) return { tuKhoaDung: bt, hopChat };
+  }
+  return { tuKhoaDung: cacBienThe[0], hopChat: null };
+}
+
 export async function layHopChat(ten: string): Promise<HopChat | null> {
   const duLieu = await goiPug<BangThuocTinh>(
     `/pug/compound/${duongDanHopChat(ten)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
@@ -269,12 +357,12 @@ interface BanGhi3D {
   }[];
 }
 
-export async function layHopChat3D(ten: string): Promise<HopChat3D | null> {
+export async function layHopChat3D(ten: string, thuocTinhDaCo?: HopChat | null): Promise<HopChat3D | null> {
   const tenSach = ten.trim().slice(0, 120);
-  const [banGhi, thuocTinh] = await Promise.all([
-    goiPug<BanGhi3D>(`/pug/compound/${duongDanHopChat(tenSach)}/JSON?record_type=3d`),
-    layHopChat(tenSach),
-  ]);
+  // Không tự gọi layHopChat ở đây nữa — caller thường ĐÃ có thuộc tính rồi
+  // (truyền qua thuocTinhDaCo). Trước đây lồng gọi khiến 1 lượt xem trang
+  // hợp chất tốn 3 lệnh gọi PubChem cho cùng một chất, thay vì 2.
+  const banGhi = await goiPug<BanGhi3D>(`/pug/compound/${duongDanHopChat(tenSach)}/JSON?record_type=3d`);
   const pc = banGhi?.PC_Compounds?.[0];
   const conformer = pc?.coords?.[0]?.conformers?.[0];
   if (!pc || !conformer) return null;
@@ -302,8 +390,8 @@ export async function layHopChat3D(ten: string): Promise<HopChat3D | null> {
   return {
     cid: pc.id.id.cid,
     tenTruyVan: ten,
-    congThuc: thuocTinh?.congThuc ?? null,
-    khoiLuongMol: thuocTinh?.khoiLuongMol ?? null,
+    congThuc: thuocTinhDaCo?.congThuc ?? null,
+    khoiLuongMol: thuocTinhDaCo?.khoiLuongMol ?? null,
     nguyenTu,
     lienKet,
   };

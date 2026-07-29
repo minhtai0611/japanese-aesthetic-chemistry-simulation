@@ -9,6 +9,10 @@ import {
 import type { HopChat, HopChat3D } from "@/lib/pubchem";
 import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
 import { slugHoaHopChat } from "@/lib/slug";
+import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
+import { useCheDoTietKiem } from "@/components/che-do-tiet-kiem";
+import { PhanTu2D, useHoTroWebGL } from "@/components/ba-d/phan-tu-2d";
+import { useBanMauNguyenTo } from "@/components/ba-d/mat-phan-tu";
 
 const CanhHopChat = dynamic(() => import("@/components/ba-d/canh-hop-chat"), {
   ssr: false,
@@ -39,9 +43,15 @@ export default function TrinhPham3D({
   const [baChieu, setBaChieu] = useState<HopChat3D | null>(baChieuBanDau);
   const [dangTai, setDangTai] = useState(false);
   const [loi, setLoi] = useState("");
-  const [tuXoay, setTuXoay] = useState(true);
+  const giam = useGiamChuyenDong();
+  const [tuXoay, setTuXoay] = useState(!giam);
   const [daCopy, setDaCopy] = useState(false);
   const demNhap = useRef<NodeJS.Timeout | null>(null);
+  const [tietKiem] = useCheDoTietKiem();
+  const hoTroWebGL = useHoTroWebGL();
+  // Chế độ tiết kiệm hoặc máy không có WebGL → dùng sơ đồ SVG 2D thay Canvas 3D.
+  const dung2D = tietKiem || !hoTroWebGL;
+  const banMau = useBanMauNguyenTo();
 
   const tai = useCallback(async (ten: string) => {
     const q = ten.trim();
@@ -154,7 +164,13 @@ export default function TrinhPham3D({
         <div className="the-khac relative h-[440px] overflow-hidden rounded-3xl sm:h-[540px]">
           <p className="chu-doc absolute left-5 top-6 z-10 text-[10px] text-washi/25">分子 — phân tử</p>
           {baChieu ? (
-            <CanhHopChat duLieu={baChieu} tuXoay={tuXoay} />
+            dung2D ? (
+              <div className="absolute inset-0 p-8">
+                <PhanTu2D duLieu={baChieu} />
+              </div>
+            ) : (
+              <CanhHopChat duLieu={baChieu} tuXoay={tuXoay} />
+            )
           ) : (
             <div className="absolute inset-0 grid place-items-center text-washi-mo">
               <div className="text-center">
@@ -163,7 +179,12 @@ export default function TrinhPham3D({
               </div>
             </div>
           )}
-          {baChieu && (
+          {baChieu && dung2D && (
+            <p className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-washi/20 bg-sumi/70 px-4 py-2 text-[10px] text-washi-mo backdrop-blur">
+              {tietKiem ? "Chế độ tiết kiệm: sơ đồ 2D thay mô hình 3D" : "Máy không hỗ trợ WebGL: sơ đồ 2D chiếu trực giao"}
+            </p>
+          )}
+          {baChieu && !dung2D && (
             <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
               <button
                 onClick={() => setTuXoay((v) => !v)}
@@ -184,10 +205,10 @@ export default function TrinhPham3D({
           <div className="the-khac rounded-3xl p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="chi-muc text-shu-sang">Hồ sơ PubChem</p>
-                <h3 className="mt-2 font-display text-3xl font-bold">
+                <h2 className="chi-muc text-shu-sang">Hồ sơ PubChem</h2>
+                <p className="mt-2 font-display text-3xl font-bold">
                   {thuocTinh ? voiChiSo(thuocTinh.congThuc) : "—"}
-                </h3>
+                </p>
                 <p className="mt-1 break-words font-mono text-[11px] text-washi-mo">
                   CID {thuocTinh?.cid ?? baChieu?.cid ?? "…"} · {thuocTinh?.iupac ?? ""}
                 </p>
@@ -246,6 +267,64 @@ export default function TrinhPham3D({
           </p>
         </div>
       </div>
+
+      {baChieu && (
+        <details className="the-khac mt-6 rounded-2xl p-5">
+          <summary className="cursor-pointer text-sm text-washi-mo">
+            Xem dữ liệu phân tử dạng bảng (thay thế cho mô hình 3D)
+          </summary>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="sr-only">Danh sách nguyên tử của {baChieu.tenTruyVan}</caption>
+              <thead>
+                <tr className="border-b border-washi/10 text-left text-[10px] uppercase tracking-wider text-washi-mo">
+                  <th scope="col" className="py-2 pr-3 font-normal">STT</th>
+                  <th scope="col" className="py-2 pr-3 font-normal">Nguyên tố</th>
+                  <th scope="col" className="py-2 pr-3 font-normal">x</th>
+                  <th scope="col" className="py-2 pr-3 font-normal">y</th>
+                  <th scope="col" className="py-2 font-normal">z</th>
+                </tr>
+              </thead>
+              <tbody>
+                {baChieu.nguyenTu.map((nt, i) => (
+                  <tr key={i} className="border-b border-washi/5 font-mono text-xs">
+                    <th scope="row" className="py-1.5 pr-3 text-left font-normal text-washi-mo">{i + 1}</th>
+                    <td className="py-1.5 pr-3">
+                      {banMau?.get(nt.so)?.kyHieu ?? nt.so} · {banMau?.get(nt.so)?.tenVi ?? "?"}
+                    </td>
+                    <td className="py-1.5 pr-3">{nt.x.toFixed(3)}</td>
+                    <td className="py-1.5 pr-3">{nt.y.toFixed(3)}</td>
+                    <td className="py-1.5">{nt.z.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {baChieu.lienKet.length > 0 && (
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">Danh sách liên kết của {baChieu.tenTruyVan}</caption>
+                <thead>
+                  <tr className="border-b border-washi/10 text-left text-[10px] uppercase tracking-wider text-washi-mo">
+                    <th scope="col" className="py-2 pr-3 font-normal">Nguyên tử A</th>
+                    <th scope="col" className="py-2 pr-3 font-normal">Nguyên tử B</th>
+                    <th scope="col" className="py-2 font-normal">Bậc liên kết</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {baChieu.lienKet.map((lk, i) => (
+                    <tr key={i} className="border-b border-washi/5 font-mono text-xs">
+                      <td className="py-1.5 pr-3">#{lk.a + 1}</td>
+                      <td className="py-1.5 pr-3">#{lk.b + 1}</td>
+                      <td className="py-1.5">{lk.bac}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </details>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight, ArrowUpRight, Atom, Database, Droplets, FlaskConical,
-  Orbit, Thermometer, Sigma, Waypoints,
+  Scale, Thermometer, Sigma, Waypoints,
 } from "lucide-react";
 import HeroNen from "@/components/hero-nen";
 import HienDan from "@/components/hien-dan";
@@ -9,6 +9,14 @@ import DemTang from "@/components/dem-tang";
 import { layTatCaNguyenTo, type NguyenTo } from "@/lib/pubchem";
 import { MAU_KHOI } from "@/lib/nguyen-to";
 import { NGUON_DU_LIEU } from "@/lib/site";
+import { CAC_PHONG } from "@/lib/phong-thi-nghiem";
+
+const ICON_PHONG = {
+  "pha-che": Droplets,
+  "chuan-do": FlaskConical,
+  "chuyen-pha": Thermometer,
+  "can-bang": Scale,
+} as const;
 
 export default async function TrangChu() {
   const nguyenTo = await layTatCaNguyenTo();
@@ -100,7 +108,7 @@ export default async function TrangChu() {
         <div className="grid gap-px overflow-hidden rounded-3xl border border-washi/10 bg-washi/10 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { den: 118, hau: "", nhan: "Nguyên tố từ bảng tuần hoàn PubChem", kanji: "元素" },
-            { den: 3, hau: "", nhan: "Phòng thí nghiệm ảo tương tác", kanji: "実験" },
+            { den: CAC_PHONG.length, hau: "", nhan: "Phòng thí nghiệm ảo tương tác", kanji: "実験" },
             { den: 100, hau: " triệu+", nhan: "Hợp chất đăng ký trong PubChem CID", kanji: "分子" },
             { den: 0, hau: "", nhan: "Điểm dữ liệu tự chế — cam kết tuyệt đối", kanji: "真" },
           ].map((s, i) => (
@@ -115,67 +123,39 @@ export default async function TrangChu() {
         </div>
       </section>
 
-      {/* ===================== NGŨ ĐẠI THÍ NGHIỆM ===================== */}
+      {/* ===================== TỨ ĐẠI THÍ NGHIỆM ===================== */}
       <section className="hoa-van-song relative mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <HienDan>
-          <p className="chi-muc mb-3 text-shu-sang">五つの実験 — Ngũ đại thí nghiệm</p>
+          <p className="chi-muc mb-3 text-shu-sang">四つの実験 — Tứ đại thí nghiệm</p>
           <h2 className="max-w-2xl font-display text-3xl font-bold leading-tight sm:text-5xl">
-            Năm nghi lễ trong một <em className="text-kin">phòng thí nghiệm</em> không giới hạn
+            Bốn nghi lễ trong một <em className="text-kin">phòng thí nghiệm</em> không giới hạn
           </h2>
         </HienDan>
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            {
-              href: "/bang-tuan-hoan", kanji: "周期表", icon: Atom,
-              tieuDe: "Bảng tuần hoàn sống",
-              moTa: "118 nguyên tố với khối lượng, điểm nóng chảy, độ âm điện… đồng bộ từ máy chủ NCBI, cache có kiểm soát. Lọc theo khối, pha, tìm kiếm tức thì.",
-            },
-            {
-              href: "/thi-nghiem/pha-che", kanji: "希釈", icon: Droplets,
-              tieuDe: "Pha chế & pha loãng",
-              moTa: "Nhập tên chất — PubChem trả khối lượng mol thật, máy tính n = m/M và C₁V₁ = C₂V₂ vẽ cốc dung dịch đổi màu theo nồng độ.",
-            },
-            {
-              href: "/thi-nghiem/chuan-do", kanji: "滴定", icon: FlaskConical,
-              tieuDe: "Chuẩn độ axit–bazơ",
-              moTa: "Mở khóa burette và ngắm phenolphtalein bừng hồng. Đường cong pH vẽ theo thời gian thực từ tích số ion K_w = 10⁻¹⁴.",
-            },
-            {
-              href: "/thi-nghiem/chuyen-pha", kanji: "相転移", icon: Thermometer,
-              tieuDe: "Buồng chuyển pha",
-              moTa: "Kéo nhiệt độ lên hàng nghìn Kelvin: mạng tinh thể rung nóng, tan chảy thành dòng, rồi bốc hơi tán loạn — quanh mốc nóng chảy và sôi thật.",
-            },
-            {
-              href: "/hop-chat", kanji: "分子", icon: Orbit,
-              tieuDe: "Đài phân tử 3D",
-              moTa: "Caffeine, aspirin, diệp lục… dựng lại từng nguyên tử từ tọa độ conformer 3D của PubChem, xoay tự do trong không gian.",
-            },
-            {
-              href: "/nguyen-to/au", kanji: "金", icon: Sigma,
-              tieuDe: "Hồ sơ nguyên tố",
-              moTa: "Mỗi nguyên tố một trang riêng: mô hình Bohr dựng từ cấu hình electron thật, thanh đo tính chất và niên đại khám phá.",
-            },
-          ].map((c, i) => (
-            <HienDan key={c.href} tre={(i % 3) * 0.08}>
-              <Link
-                href={c.href}
-                className="the-khac group relative block h-full overflow-hidden rounded-3xl p-7 transition-all duration-500 hover:-translate-y-1.5"
-              >
-                <span className="pointer-events-none absolute -right-3 -top-6 select-none font-display text-[7rem] font-black leading-none text-washi/[0.045] transition-colors duration-500 group-hover:text-shu/15">
-                  {c.kanji}
-                </span>
-                <span className="inline-flex rounded-2xl border border-shu/35 bg-shu/10 p-3 text-shu-sang">
-                  <c.icon size={20} />
-                </span>
-                <h3 className="mt-5 font-display text-xl font-bold">{c.tieuDe}</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-washi-mo">{c.moTa}</p>
-                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-kin">
-                  Khám phá <ArrowUpRight size={13} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </span>
-              </Link>
-            </HienDan>
-          ))}
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {CAC_PHONG.map((p, i) => {
+            const Icon = ICON_PHONG[p.slug];
+            return (
+              <HienDan key={p.slug} tre={i * 0.08}>
+                <Link
+                  href={`/thi-nghiem/${p.slug}`}
+                  className="the-khac group relative block h-full overflow-hidden rounded-3xl p-7 transition-all duration-500 hover:-translate-y-1.5"
+                >
+                  <span className="pointer-events-none absolute -right-3 -top-6 select-none font-display text-[7rem] font-black leading-none text-washi/[0.045] transition-colors duration-500 group-hover:text-shu/15">
+                    {p.kanji}
+                  </span>
+                  <span className="inline-flex rounded-2xl border border-shu/35 bg-shu/10 p-3 text-shu-sang">
+                    <Icon size={20} />
+                  </span>
+                  <h3 className="mt-5 font-display text-xl font-bold">{p.nhan}</h3>
+                  <p className="mt-2.5 text-sm leading-relaxed text-washi-mo">{p.moTa}</p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-kin">
+                    Khám phá <ArrowUpRight size={13} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </span>
+                </Link>
+              </HienDan>
+            );
+          })}
         </div>
       </section>
 
