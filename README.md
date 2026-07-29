@@ -46,10 +46,10 @@ Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết
 | Lỗi 5xx trên URL surface | 14 | **0** | `npm run audit:urls` |
 | Lỗ hổng npm mức HIGH | 12 | **0** | `npm audit --audit-level=high` |
 | Alias tiếng Việt bị sập (500) | 14/39 | **0/39** | `curl .../hop-chat/n%C6%B0%E1%BB%9Bc` → 200 (qua 308) |
-| Test tự động (unit) | 0 | **165 PASS** | `npm run test` |
+| Test tự động (unit) | 0 | **284 PASS** | `npm run test` |
 | Test tự động (E2E) | 0 | **6/6 PASS** | `npm run test:e2e` |
 | Cân bằng phương trình đúng | — | **50/50** | `npm run test` (`can-bang.test.ts`) |
-| Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config.test.ts`) |
+| Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config-118.test.ts`, quét toàn bộ 118 nguyên tố với dữ liệu PubChem thật) |
 | Lighthouse Accessibility (cả 3 URL) | — | **100/100** | xem `docs/a11y.md` |
 | Lighthouse SEO (cả 3 URL) | — | **100/100** | `npx @lhci/cli autorun` |
 | Lighthouse Performance (trang có WebGL) | — | **30-66/100** (dưới ngưỡng kế hoạch) | xem `docs/lighthouse.md` |
