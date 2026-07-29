@@ -5,15 +5,9 @@ import { Scale, Sigma } from "lucide-react";
 import { canBang, type KetQuaCanBang } from "@/lib/hoa-hoc/can-bang";
 import { phanTichCongThuc } from "@/lib/hoa-hoc/parser-cong-thuc";
 import { tinhKhoiLuongMol, bangKhoiLuongTheoKyHieu } from "@/lib/hoa-hoc/khoi-luong-mol";
+import { VI_DU_PHUONG_TRINH as VI_DU } from "@/lib/hoa-hoc/vi-du-phuong-trinh";
 import type { NguyenTo } from "@/lib/pubchem";
-
-const VI_DU = [
-  { trai: "H2 + O2", phai: "H2O" },
-  { trai: "Fe + O2", phai: "Fe2O3" },
-  { trai: "C3H8 + O2", phai: "CO2 + H2O" },
-  { trai: "KMnO4 + HCl", phai: "KCl + MnCl2 + Cl2 + H2O" },
-  { trai: "Ca(OH)2 + H3PO4", phai: "Ca3(PO4)2 + H2O" },
-];
+import NutLuuSoTay from "@/components/so-tay/nut-luu-so-tay";
 
 function tachChat(input: string): string[] {
   return input
@@ -195,6 +189,14 @@ export default function PhongCanBang() {
                 <strong className="text-washi">{mPhai.toFixed(2)} g</strong>
               </p>
             )}
+
+            <NutLuuSoTay
+              className="mx-auto mt-6"
+              loaiPhong="can-bang"
+              tieuDe={`Cân bằng: ${veTraiNhap} → ${vePhaiNhap}`}
+              thamSo={{ veTrai: veTraiChat, vePhai: vePhaiChat }}
+              ketQua={{ heSoTrai: ketQua.heSoTrai, heSoPhai: ketQua.heSoPhai }}
+            />
           </div>
         )}
       </div>

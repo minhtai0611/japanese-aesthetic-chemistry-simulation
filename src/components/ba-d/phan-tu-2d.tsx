@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { HopChat3D } from "@/lib/pubchem";
 import { mauCua, useBanMauNguyenTo } from "./mat-phan-tu";
 
@@ -12,6 +12,18 @@ export function coWebGL(): boolean {
   } catch {
     return false;
   }
+}
+
+const khongDangKy = () => () => {};
+
+/**
+ * Phát hiện WebGL an toàn cho hydration: getServerSnapshot lạc quan trả về
+ * true (giống lúc SSR không có document) nên khung hình đầu tiên trên client
+ * luôn khớp HTML server — không dùng useState+useEffect vì gọi setState
+ * trong effect gây thêm một lượt render không cần thiết (react-hooks/set-state-in-effect).
+ */
+export function useHoTroWebGL(): boolean {
+  return useSyncExternalStore(khongDangKy, coWebGL, () => true);
 }
 
 function banKinhNguyenTu(so: number): number {
