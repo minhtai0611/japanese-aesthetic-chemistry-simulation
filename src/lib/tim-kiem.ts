@@ -51,3 +51,49 @@ export async function timHopChat(q: string, limit = 8): Promise<KetQuaTimKiem[]>
 
   return rows;
 }
+
+export type KetQuaCauTruc = {
+  cid: number;
+  tenTruyVan: string;
+  congThuc: string | null;
+  khoiLuongMol: number | null;
+  smiles: string | null;
+  iupac: string | null;
+  inchikey: string | null;
+};
+
+/**
+ * Tìm hợp chất theo cấu trúc: chuỗi con SMILES/IUPAC/InChIKey (ILIKE, dùng
+ * chỉ mục trigram GIN trên compound_cache) và/hoặc dải khối lượng mol. Chỉ
+ * tìm trong compound_cache — những chất ĐÃ đồng bộ thật từ PubChem qua
+ * dong-bo-hop-chat.ts, không suy đoán/nội suy khối lượng cho chất chưa có.
+ * Không có tham số nào → trả rỗng (tránh SELECT * vô điều kiện).
+ */
+export async function timCauTrucHoaHoc(params: {
+  tuKhoa?: string;
+  khoiLuongToiThieu?: number;
+  khoiLuongToiDa?: number;
+  limit?: number;
+}): Promise<KetQuaCauTruc[]> {
+  const { tuKhoa, khoiLuongToiThieu, khoiLuongToiDa, limit = 20 } = params;
+  const tu = tuKhoa?.trim();
+
+  const dieuKien = [];
+  if (tu) {
+    const mau = `%${tu}%`;
+    dieuKien.push(sql`(c.smiles ILIKE ${mau} OR c.iupac ILIKE ${mau} OR c.inchikey ILIKE ${mau})`);
+  }
+  if (khoiLuongToiThieu != null) dieuKien.push(sql`c.khoi_luong_mol >= ${khoiLuongToiThieu}`);
+  if (khoiLuongToiDa != null) dieuKien.push(sql`c.khoi_luong_mol <= ${khoiLuongToiDa}`);
+  if (dieuKien.length === 0) return [];
+
+  const { rows } = await db.execute<KetQuaCauTruc>(sql`
+    SELECT c.cid, c.ten_truy_van AS "tenTruyVan", c.cong_thuc AS "congThuc",
+           c.khoi_luong_mol AS "khoiLuongMol", c.smiles, c.iupac, c.inchikey
+    FROM compound_cache c
+    WHERE ${sql.join(dieuKien, sql` AND `)}
+    ORDER BY c.khoi_luong_mol ASC NULLS LAST
+    LIMIT ${limit}
+  `);
+  return rows;
+}

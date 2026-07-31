@@ -36,6 +36,11 @@ export const compoundCache = pgTable(
   (t) => [
     uniqueIndex("compound_cache_cid_idx").on(t.cid),
     index("compound_cache_inchikey_idx").on(t.inchikey),
+    // Trigram GIN — tìm cấu trúc theo chuỗi con SMILES/IUPAC/InChIKey (ILIKE
+    // '%...%'), không chỉ khớp chính xác. pg_trgm bật ở scripts/db-enable-extensions.ts.
+    index("compound_cache_smiles_trgm_idx").using("gin", sql`${t.smiles} gin_trgm_ops`),
+    index("compound_cache_iupac_trgm_idx").using("gin", sql`${t.iupac} gin_trgm_ops`),
+    index("compound_cache_inchikey_trgm_idx").using("gin", sql`${t.inchikey} gin_trgm_ops`),
   ],
 );
 
