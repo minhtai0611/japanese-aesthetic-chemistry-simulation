@@ -12,6 +12,7 @@ import { slugHoaHopChat } from "@/lib/slug";
 import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
 import { useCheDoTietKiem } from "@/components/che-do-tiet-kiem";
 import { PhanTu2D, useHoTroWebGL } from "@/components/ba-d/phan-tu-2d";
+import { useIntersectionObserver } from "@/components/ba-d/lazy-canvas-wrapper";
 import { useBanMauNguyenTo } from "@/components/ba-d/mat-phan-tu";
 
 const CanhHopChat = dynamic(() => import("@/components/ba-d/canh-hop-chat"), {
@@ -51,6 +52,11 @@ export default function TrinhPham3D({
   const hoTroWebGL = useHoTroWebGL();
   // Chế độ tiết kiệm hoặc máy không có WebGL → dùng sơ đồ SVG 2D thay Canvas 3D.
   const dung2D = tietKiem || !hoTroWebGL;
+  // Trong dung2D: giữ 2D vĩnh viễn. Ngoài dung2D: chỉ đổi sang Canvas 3D khi
+  // khu vực này lọt khung nhìn HOẶC người dùng bấm nút kích hoạt thủ công.
+  const { ref: khungCanvas, dangHienThi } = useIntersectionObserver();
+  const [kichHoatThuCong, setKichHoatThuCong] = useState(false);
+  const hienThi3D = !dung2D && (dangHienThi || kichHoatThuCong);
   const banMau = useBanMauNguyenTo();
 
   const tai = useCallback(async (ten: string) => {
@@ -161,15 +167,15 @@ export default function TrinhPham3D({
 
       {/* Khán đài phân tử */}
       <div className="mt-10 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-        <div className="the-khac relative h-[440px] overflow-hidden rounded-3xl sm:h-[540px]">
+        <div ref={khungCanvas} className="the-khac relative h-[440px] overflow-hidden rounded-3xl sm:h-[540px]">
           <p className="chu-doc absolute left-5 top-6 z-10 text-[10px] text-washi/25">分子 — phân tử</p>
           {baChieu ? (
-            dung2D ? (
+            hienThi3D ? (
+              <CanhHopChat duLieu={baChieu} tuXoay={tuXoay} />
+            ) : (
               <div className="absolute inset-0 p-8">
                 <PhanTu2D duLieu={baChieu} />
               </div>
-            ) : (
-              <CanhHopChat duLieu={baChieu} tuXoay={tuXoay} />
             )
           ) : (
             <div className="absolute inset-0 grid place-items-center text-washi-mo">
@@ -184,7 +190,15 @@ export default function TrinhPham3D({
               {tietKiem ? "Chế độ tiết kiệm: sơ đồ 2D thay mô hình 3D" : "Máy không hỗ trợ WebGL: sơ đồ 2D chiếu trực giao"}
             </p>
           )}
-          {baChieu && !dung2D && (
+          {baChieu && !dung2D && !hienThi3D && (
+            <button
+              onClick={() => setKichHoatThuCong(true)}
+              className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-washi/20 bg-sumi/70 px-4 py-2 text-xs text-washi-mo backdrop-blur transition-colors hover:border-shu-sang hover:text-washi"
+            >
+              Bật tương tác 3D xoay chiều
+            </button>
+          )}
+          {baChieu && hienThi3D && (
             <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
               <button
                 onClick={() => setTuXoay((v) => !v)}

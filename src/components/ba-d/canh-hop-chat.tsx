@@ -1,13 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import dynamic from "next/dynamic";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
 import type { HopChat3D } from "@/lib/pubchem";
+
+// Tách riêng khỏi chunk chính — xem giải thích ở đầu hieu-ung-hau-xu-ly.tsx.
+const HieuUngHopChat = dynamic(() => import("./hieu-ung-hau-xu-ly").then((m) => m.HieuUngHopChat), { ssr: false });
 
 /**
  * three.js's WebGLRenderer.dispose() does not release the GPU-side context —
@@ -90,6 +93,15 @@ export default function CanhHopChat({
   tuXoay?: boolean;
 }) {
   const banMau = useBanMauNguyenTo();
+  // Đợi scene chính vẽ xong khung hình đầu rồi mới tải chunk postprocessing —
+  // tránh việc bundle Bloom cạnh tranh main-thread ngay lúc tải trang.
+  const [daSanSang, setDaSanSang] = useState(false);
+  useEffect(() => {
+    const idle = typeof requestIdleCallback === "function" ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 300);
+    const huy = typeof requestIdleCallback === "function" ? cancelIdleCallback : clearTimeout;
+    const id = idle(() => setDaSanSang(true));
+    return () => huy(id as never);
+  }, []);
   const banKinh = useMemo(() => banKinhBaoQuanh(duLieu), [duLieu]);
   const khoangCach = Math.min(Math.max(banKinh * 2.5, 4.5), 26);
   // Vị trí camera ban đầu (Canvas chỉ mount MỘT LẦN) — các lần đổi phân tử sau đó
@@ -131,9 +143,7 @@ export default function CanhHopChat({
           </mesh>
         </Suspense>
         <DongBoKhungHinh cid={duLieu.cid} banKinh={banKinh} khoangCach={khoangCach} />
-        <EffectComposer>
-          <Bloom mipmapBlur intensity={0.55} luminanceThreshold={0.24} luminanceSmoothing={0.4} radius={0.7} />
-        </EffectComposer>
+        {daSanSang && <HieuUngHopChat />}
       </Canvas>
       {/* Phủ mờ dần mỗi lần đổi phân tử — chỉ là div thường, không phải WebGL, nên remount vô hại */}
       <div key={duLieu.cid} className="pointer-events-none absolute inset-0 bg-sumi mo-dan-nguoc" />
