@@ -3,11 +3,14 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Float } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import dynamic from "next/dynamic";
 import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
 import type { HopChat3D } from "@/lib/pubchem";
 import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
+
+// Tách riêng khỏi chunk chính — xem giải thích ở đầu hieu-ung-hau-xu-ly.tsx.
+const HieuUngHero = dynamic(() => import("./hieu-ung-hau-xu-ly").then((m) => m.HieuUngHero), { ssr: false });
 
 /** Hàm băm quyết định (pure) thay Math.random — cùng seed luôn cho cùng kết quả */
 function ngauNhienGia(hat: number): number {
@@ -154,6 +157,15 @@ function CameraRu() {
 
 export default function CanhHero() {
   const giam = useGiamChuyenDong();
+  // Đợi scene chính vẽ xong khung hình đầu rồi mới tải chunk postprocessing —
+  // tránh việc bundle Bloom/Vignette cạnh tranh main-thread ngay lúc tải trang.
+  const [daSanSang, setDaSanSang] = useState(false);
+  useEffect(() => {
+    const idle = typeof requestIdleCallback === "function" ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 300);
+    const huy = typeof requestIdleCallback === "function" ? cancelIdleCallback : clearTimeout;
+    const id = idle(() => setDaSanSang(true));
+    return () => huy(id as never);
+  }, []);
 
   return (
     <div className="absolute inset-0" aria-hidden>
@@ -174,12 +186,7 @@ export default function CanhHero() {
         </Suspense>
         <CameraRu />
         <GiaiPhongContext />
-        {!giam && (
-          <EffectComposer>
-            <Bloom mipmapBlur intensity={0.85} luminanceThreshold={0.18} luminanceSmoothing={0.34} radius={0.75} />
-            <Vignette eskil={false} offset={0.24} darkness={0.72} />
-          </EffectComposer>
-        )}
+        {!giam && daSanSang && <HieuUngHero />}
       </Canvas>
     </div>
   );
