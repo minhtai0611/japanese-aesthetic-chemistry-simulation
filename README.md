@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml)
 
-A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 118-element periodic table, 3D molecule/compound viewers, interactive virtual-lab experiments (titration, dilution, phase-change, equation balancing), a saved lab notebook, and a deterministic exercise generator with a teacher mode — styled with a Japanese aesthetic, kanji labels alongside Vietnamese copy.
+A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 118-element periodic table, 3D molecule/compound viewers, and interactive virtual-lab experiments (titration, dilution, phase-change, equation balancing) — styled with a Japanese aesthetic, kanji labels alongside Vietnamese copy.
 
 **Live:** https://japanese-aesthetic-chemistry-simula.vercel.app
 
@@ -29,11 +29,10 @@ PubChem marks some superheavy elements' standard state as `"Expected to be a ...
 ```mermaid
 flowchart LR
   U[Học sinh / Học viên] --> N[Next.js App Router]
-  N -->|DB trước| P[(Postgres / Neon<br/>cache · aliases · so tay · de thi)]
+  N -->|DB trước| P[(Postgres / Neon<br/>cache · aliases)]
   N -->|fallback, semaphore 4 req/s| C[PubChem PUG-REST]
   P -.->|cron thứ 2 hàng tuần| C
   N --> W[three.js / React Three Fiber<br/>fallback SVG 2D khi không có WebGL]
-  N --> L[Sổ tay + Bài tập<br/>client-id ẩn danh, không cần login]
 ```
 
 ## Số liệu đo được (trước / sau)
@@ -46,7 +45,7 @@ Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết
 | Lỗi 5xx trên URL surface | 14 | **0** | `npm run audit:urls` |
 | Lỗ hổng npm mức HIGH | 12 | **0** | `npm audit --audit-level=high` |
 | Alias tiếng Việt bị sập (500) | 14/39 | **0/39** | `curl .../hop-chat/n%C6%B0%E1%BB%9Bc` → 200 (qua 308) |
-| Test tự động (unit) | 0 | **284 PASS** | `npm run test` |
+| Test tự động (unit) | 0 | **252 PASS** | `npm run test` |
 | Test tự động (E2E) | 0 | **6/6 PASS** | `npm run test:e2e` |
 | Cân bằng phương trình đúng | — | **50/50** | `npm run test` (`can-bang.test.ts`) |
 | Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config-118.test.ts`, quét toàn bộ 118 nguyên tố với dữ liệu PubChem thật) |
@@ -105,24 +104,20 @@ Open [http://localhost:3000](http://localhost:3000).
   - `/` (home), `/bang-tuan-hoan` (periodic table), `/nguyen-to/[kyhieu]` (element detail)
   - `/hop-chat` (3D compound viewer, SSR'd with a default compound) and `/hop-chat/[ten]` — real, indexable, shareable permalinks per compound (own metadata/canonical/OG image, `generateStaticParams` over the featured list)
   - `/thi-nghiem` (lab hub/landing) plus dedicated routes per room: `/thi-nghiem/pha-che`, `/thi-nghiem/chuan-do`, `/thi-nghiem/chuyen-pha`, `/thi-nghiem/can-bang` — each with its own metadata and code-split bundle
-  - `/so-tay` — saved lab notebook (anonymous `client_id` cookie, no login) and `/so-tay/[id]/in` — a print-optimized report per saved entry
-  - `/de/tao`, `/de/[ma]`, `/de/[ma]/ket-qua` — teacher creates a deterministic exercise set, students answer with a 6-character code, teacher views results + exports CSV
   - `src/app/opengraph-image.tsx` / `src/app/hop-chat/[ten]/opengraph-image.tsx` — dynamically generated OG images (no static image asset to go stale/404)
   - API routes under `src/app/api/*`
 - `src/components/ba-d/` — three.js scene components (hero, compound scene, molecule mesh, 2D SVG fallback).
-- `src/components/bang-tuan-hoan/`, `src/components/thi-nghiem/`, `src/components/hop-chat/`, `src/components/so-tay/`, `src/components/de-thi/` — feature UI per route.
+- `src/components/bang-tuan-hoan/`, `src/components/thi-nghiem/`, `src/components/hop-chat/` — feature UI per route.
 - `src/lib/pubchem.ts` — PubChem PUG-REST client (the only source of chemistry data); also resolves CID-only queries and Vietnamese aliases (`src/lib/alias-hop-chat.ts`) before hitting PubChem.
 - `src/lib/electron-config.ts` — noble-gas-notation electron shell expansion, used by `pubchem.ts`.
 - `src/lib/hoa-hoc/` — pure chemistry math: titration (`chuan-do.ts`), molar mass (`khoi-luong-mol.ts`), equation balancing via exact-rational Gauss-Jordan (`can-bang.ts`), formula parsing (`parser-cong-thuc.ts`).
-- `src/lib/de-thi/` — `sinh-de.ts` (mulberry32-seeded exercise generator, pure/testable) and `db.ts` (exercise-set CRUD).
-- `src/lib/so-tay.ts`, `src/lib/client-id.ts` — lab notebook persistence and the anonymous client-id cookie.
 - `src/lib/nguyen-to.ts` — element name/translation tables.
 - `src/lib/site.ts` — site metadata/nav.
 - `src/lib/hop-chat-noi-bat.ts`, `src/lib/phong-thi-nghiem.ts`, `src/lib/slug.ts`, `src/lib/dinh-danh-chat.ts` — shared constants/helpers for the compound permalinks and lab rooms (see `docs/adr/0002-*` and `0003-*`).
 - `src/lib/tim-kiem.ts` — Vietnamese diacritic-insensitive + typo-tolerant compound search over Postgres (`to_tsvector`/`pg_trgm`, no AI); `/api/goi-y` tries this first, falls back to PubChem autocomplete if the DB is unreachable or has no match.
 - `src/lib/dong-bo-hop-chat.ts` — syncs `compound_cache`/`compound_aliases` from real PubChem data; shared by `scripts/seed-compounds.ts` (manual) and `/api/cron/sync` (scheduled, see `vercel.json`).
 - `src/app/quan-tri/tu-khoa-thieu/` — token-gated (`QUAN_TRI_TOKEN`) dashboard of search queries with no results, to grow `ALIAS_HOP_CHAT` from real usage instead of guessing.
-- `src/db/schema.ts` — Drizzle schema for the internal search/cache layer plus the lab-notebook and exercise-set tables (see `docs/tim-kiem.md`).
+- `src/db/schema.ts` — Drizzle schema for the internal search/cache layer (see `docs/tim-kiem.md`).
 - `docs/adr/` — architecture decision records for the non-obvious calls (data-confidence tiers, ASCII slug normalization, the education whitelist, exact-rational equation balancing).
 - `tests/unit/` (Vitest) and `tests/e2e/` (Playwright) — see the metrics table above for current pass counts.
 

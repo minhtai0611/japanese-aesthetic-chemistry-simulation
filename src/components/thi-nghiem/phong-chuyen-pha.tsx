@@ -5,7 +5,6 @@ import { ChevronDown, Snowflake, Waves, Wind } from "lucide-react";
 import type { NguyenTo } from "@/lib/pubchem";
 import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
 import { useCheDoTietKiem } from "@/components/che-do-tiet-kiem";
-import NutLuuSoTay from "@/components/so-tay/nut-luu-so-tay";
 
 interface Hat {
   x: number; y: number; vx: number; vy: number; gx: number; gy: number;
@@ -302,15 +301,6 @@ export default function PhongChuyenPha({ nguyenTo }: { nguyenTo: NguyenTo[] }) {
             </div>
           </dl>
         </div>
-
-        {nt && (
-          <NutLuuSoTay
-            loaiPhong="chuyen-pha"
-            tieuDe={`Chuyển pha ${nt.tenVi} (${nt.kyHieu}) ở ${nhietDo.toLocaleString("vi-VN")} K`}
-            thamSo={{ so: nt.so, nhietDo }}
-            ketQua={{ trangThai, nongChayK: nt.nongChayK, soiK: nt.soiK }}
-          />
-        )}
 
         <div className="rounded-3xl border border-kin/25 bg-kin/5 p-5 text-xs leading-relaxed text-kin">
           Mô phỏng cấp khái niệm: hạt là nét minh họa; mốc chuyển pha và số liệu vật lý hoàn toàn
