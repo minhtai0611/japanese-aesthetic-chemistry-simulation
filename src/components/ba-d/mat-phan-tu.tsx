@@ -123,7 +123,7 @@ export function MatPhanTu({
         const mau = mauCua(banMau, nt.so);
         return (
           <mesh key={`nt-${i}`} position={[nt.x, nt.y, nt.z]}>
-            <sphereGeometry args={[khungBanKinh.get(nt.so) ?? 0.42, 28, 28]} />
+            <sphereGeometry args={[khungBanKinh.get(nt.so) ?? 0.42, 20, 20]} />
             <meshStandardMaterial
               color={mau}
               emissive={mau}

@@ -6,7 +6,7 @@
  * Xem `docs/tim-kiem.md` để biết luồng tra cứu DB-trước/PubChem-sau.
  */
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, pgTable, real, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 /** Bản sao gọn các thuộc tính PubChem đã tra cứu — tránh gọi lại PUG-REST cho cùng CID */
 export const compoundCache = pgTable(
@@ -19,15 +19,29 @@ export const compoundCache = pgTable(
     khoiLuongMol: real("khoi_luong_mol"),
     iupac: text("iupac"),
     smiles: text("smiles"),
+    inchikey: text("inchikey"), // từ property InChIKey — null = chưa đồng bộ chất này
     xLogP: real("xlogp"),
     co3D: boolean("co_3d"), // có conformer 3D không (record_type=3d) — null = chưa xác thực
+    // Toạ độ nguyên tử + liên kết thật từ record_type=3d ({ nguyenTu, lienKet },
+    // cùng hình dạng NguyenTu3D/LienKet3D trong src/lib/pubchem.ts) — null khi
+    // co3D=false hoặc chưa đồng bộ. Cho phép layHopChat3D đọc DB trước khi gọi
+    // mạng NCBI (xem docs/tim-kiem.md).
+    conformers3d: jsonb("conformers_3d"),
     laGiaoDuc: boolean("la_giao_duc").notNull().default(false), // thuộc CHAT_GIAO_DUC
     lopHoc: text("lop_hoc"), // "8,9,11" — CHƯA seed, cần dữ liệu chương trình thật, không bịa
     daXacThuc: boolean("da_xac_thuc").notNull().default(false), // đã gọi PubChem thành công thật
     xacThucLuc: timestamp("xac_thuc_luc", { withTimezone: true }),
     capNhatLuc: timestamp("cap_nhat_luc").defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("compound_cache_cid_idx").on(t.cid)],
+  (t) => [
+    uniqueIndex("compound_cache_cid_idx").on(t.cid),
+    index("compound_cache_inchikey_idx").on(t.inchikey),
+    // Trigram GIN — tìm cấu trúc theo chuỗi con SMILES/IUPAC/InChIKey (ILIKE
+    // '%...%'), không chỉ khớp chính xác. pg_trgm bật ở scripts/db-enable-extensions.ts.
+    index("compound_cache_smiles_trgm_idx").using("gin", sql`${t.smiles} gin_trgm_ops`),
+    index("compound_cache_iupac_trgm_idx").using("gin", sql`${t.iupac} gin_trgm_ops`),
+    index("compound_cache_inchikey_trgm_idx").using("gin", sql`${t.inchikey} gin_trgm_ops`),
+  ],
 );
 
 /** Alias tiếng Việt/tiếng Anh cho một CID — nguồn cho tìm kiếm full-text tsvector/GIN */

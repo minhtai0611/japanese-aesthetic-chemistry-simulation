@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Scale, Sigma } from "lucide-react";
 import { canBang, type KetQuaCanBang } from "@/lib/hoa-hoc/can-bang";
+import type { KetQuaNhietDong } from "@/lib/hoa-hoc/nhiet-dong";
 import { phanTichCongThuc } from "@/lib/hoa-hoc/parser-cong-thuc";
 import { tinhKhoiLuongMol, bangKhoiLuongTheoKyHieu } from "@/lib/hoa-hoc/khoi-luong-mol";
 import type { NguyenTo } from "@/lib/pubchem";
@@ -31,6 +32,8 @@ export default function PhongCanBang() {
   const [vePhaiNhap, setVePhaiNhap] = useState(VI_DU[0].phai);
   const [ketQua, setKetQua] = useState<KetQuaCanBang | null>(null);
   const [nguyenTo, setNguyenTo] = useState<NguyenTo[] | null>(null);
+  const [nhietDong, setNhietDong] = useState<KetQuaNhietDong | null>(null);
+  const [dangTinhNhietDong, setDangTinhNhietDong] = useState(false);
 
   useEffect(() => {
     let huy = false;
@@ -52,7 +55,26 @@ export default function PhongCanBang() {
   const tinhCanBang = () => {
     const veTrai = tachChat(veTraiNhap);
     const vePhai = tachChat(vePhaiNhap);
-    setKetQua(canBang(veTrai, vePhai));
+    const kq = canBang(veTrai, vePhai);
+    setKetQua(kq);
+    setNhietDong(null);
+    // Tra nhiệt động (PubChem + Materials Project, xem nhiet-dong.ts) tách
+    // riêng khỏi canBang() — canBang() phải giữ nguyên đồng bộ. Gọi qua API
+    // route (/api/nhiet-dong), KHÔNG import trực tiếp nhiet-dong.ts ở đây:
+    // nó đụng tới pubchem.ts → pg (Node-only) và MATERIALS_PROJECT_API_KEY
+    // không được lộ ra bundle "use client".
+    if (kq.ok) {
+      setDangTinhNhietDong(true);
+      fetch("/api/nhiet-dong", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenTrai: veTrai, heSoTrai: kq.heSoTrai, tenPhai: vePhai, heSoPhai: kq.heSoPhai }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then(setNhietDong)
+        .catch(() => setNhietDong(null))
+        .finally(() => setDangTinhNhietDong(false));
+    }
   };
 
   const veTraiChat = tachChat(veTraiNhap);
@@ -87,6 +109,7 @@ export default function PhongCanBang() {
                 onChange={(e) => {
                   setVeTraiNhap(e.target.value);
                   setKetQua(null);
+                  setNhietDong(null);
                 }}
                 placeholder="Fe + O2"
                 className="w-full bg-transparent font-mono text-sm outline-none placeholder:text-washi-mo/50"
@@ -104,6 +127,7 @@ export default function PhongCanBang() {
                 onChange={(e) => {
                   setVePhaiNhap(e.target.value);
                   setKetQua(null);
+                  setNhietDong(null);
                 }}
                 placeholder="Fe2O3"
                 className="w-full bg-transparent font-mono text-sm outline-none placeholder:text-washi-mo/50"
@@ -128,6 +152,7 @@ export default function PhongCanBang() {
                 setVeTraiNhap(vd.trai);
                 setVePhaiNhap(vd.phai);
                 setKetQua(null);
+                setNhietDong(null);
               }}
               className="rounded-full border border-washi/12 px-3.5 py-1.5 text-xs text-washi-mo transition-colors hover:border-shu-sang hover:text-shu-sang"
             >
@@ -194,6 +219,76 @@ export default function PhongCanBang() {
                 <strong className="text-washi">{mTrai.toFixed(2)} g</strong> ={" "}
                 <strong className="text-washi">{mPhai.toFixed(2)} g</strong>
               </p>
+            )}
+
+            {dangTinhNhietDong && (
+              <p className="mt-3 font-mono text-[11px] text-washi-mo/60">
+                Đang tra nhiệt động lực học (PubChem + Materials Project)…
+              </p>
+            )}
+
+            {!dangTinhNhietDong && nhietDong && (
+              nhietDong.coDuLieu ? (
+                <div className="mt-3 space-y-1.5 font-mono text-[11px] text-washi-mo/80">
+                  <p>
+                    {nhietDong.deltaH < 0
+                      ? "Phản ứng tỏa nhiệt (Exothermic): "
+                      : nhietDong.deltaH > 0
+                        ? "Phản ứng thu nhiệt (Endothermic): "
+                        : ""}
+                    ΔH° ={" "}
+                    <strong className="text-washi">
+                      {nhietDong.deltaH > 0 ? "+" : ""}
+                      {nhietDong.deltaH.toFixed(1)} kJ/mol
+                    </strong>
+                    {nhietDong.coNguonDFT &&
+                      " (một phần từ Materials Project, DFT ~0K — không hoàn toàn tương đương ΔH°f thực nghiệm)"}
+                  </p>
+                  {nhietDong.deltaG != null ? (
+                    <p>
+                      {nhietDong.deltaG < 0
+                        ? "Phản ứng tự xảy ra theo nhiệt động lực học ở 298 K: "
+                        : "Không tự xảy ra ở 298 K theo nhiệt động lực học: "}
+                      ΔG° ={" "}
+                      <strong className="text-washi">
+                        {nhietDong.deltaG > 0 ? "+" : ""}
+                        {nhietDong.deltaG.toFixed(1)} kJ/mol
+                      </strong>
+                    </p>
+                  ) : (
+                    <p className="text-washi-mo/60">
+                      Không đủ dữ liệu đã xác minh để tính ΔG° (tính tự phát) cho phản ứng này.
+                    </p>
+                  )}
+                  <p className="text-washi-mo/50">
+                    Nguồn:{" "}
+                    {nhietDong.chiTietNguon.map((c, i) => (
+                      <span key={i}>
+                        {i > 0 && ", "}
+                        {c.ten} ({c.nguon === "ghim" ? "NIST/CODATA, đã xác minh" : "Materials Project, DFT"}
+                        {c.cid != null && (
+                          <>
+                            {" · "}
+                            <a
+                              href={`https://pubchem.ncbi.nlm.nih.gov/compound/${c.cid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                            >
+                              CID {c.cid}
+                            </a>
+                          </>
+                        )}
+                        )
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 font-mono text-[11px] text-washi-mo/60">
+                  Không có dữ liệu nhiệt động (NIST/CODATA hoặc Materials Project) cho: {nhietDong.thieuChat.join(", ")}.
+                </p>
+              )
             )}
           </div>
         )}
