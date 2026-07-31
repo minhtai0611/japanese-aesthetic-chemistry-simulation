@@ -110,7 +110,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - `src/components/bang-tuan-hoan/`, `src/components/thi-nghiem/`, `src/components/hop-chat/` — feature UI per route.
 - `src/lib/pubchem.ts` — PubChem PUG-REST client (the only source of chemistry data); also resolves CID-only queries and Vietnamese aliases (`src/lib/alias-hop-chat.ts`) before hitting PubChem.
 - `src/lib/electron-config.ts` — noble-gas-notation electron shell expansion, used by `pubchem.ts`.
-- `src/lib/hoa-hoc/` — pure chemistry math: titration (`chuan-do.ts`), molar mass (`khoi-luong-mol.ts`), equation balancing via exact-rational Gauss-Jordan (`can-bang.ts`), formula parsing (`parser-cong-thuc.ts`).
+- `src/lib/hoa-hoc/` — pure chemistry math: titration (`chuan-do.ts`), molar mass (`khoi-luong-mol.ts`), equation balancing via exact-rational Gauss-Jordan (`can-bang.ts`), formula parsing (`parser-cong-thuc.ts`), reaction thermodynamics (`nhiet-dong.ts` — ΔH°rxn/ΔG°rxn via Hess's law, served through `/api/nhiet-dong` since it needs server-only network/secret access; see the file header for why Wikidata was tried and rejected as a data source, and why NIST WebBook and Materials Project each play a narrow, clearly-labeled role instead of one blended number).
 - `src/lib/nguyen-to.ts` — element name/translation tables.
 - `src/lib/site.ts` — site metadata/nav.
 - `src/lib/hop-chat-noi-bat.ts`, `src/lib/phong-thi-nghiem.ts`, `src/lib/slug.ts`, `src/lib/dinh-danh-chat.ts` — shared constants/helpers for the compound permalinks and lab rooms (see `docs/adr/0002-*` and `0003-*`).
