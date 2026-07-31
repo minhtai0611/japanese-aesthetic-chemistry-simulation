@@ -13,6 +13,7 @@
 import { BO_TRI, TEN_VI, DICH_GIA_DINH } from "./nguyen-to";
 import { lopVoTuCauHinh } from "./electron-config";
 import { dichTenHopChat, goiYTenTiengViet } from "./alias-hop-chat";
+import { sql } from "drizzle-orm";
 
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
 const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
@@ -246,6 +247,7 @@ export interface HopChat {
   khoiLuongExact: number | null;
   iupac: string | null;
   smiles: string | null;
+  inchikey: string | null;
   xLogP: number | null;
   tpsa: number | null;
   hbd: number | null;
@@ -264,6 +266,7 @@ interface BangThuocTinh {
       IUPACName?: string;
       ConnectivitySMILES?: string;
       SMILES?: string;
+      InChIKey?: string;
       XLogP?: number;
       TPSA?: number;
       HBondDonorCount?: number;
@@ -303,7 +306,7 @@ export async function layHopChatTheoBienThe(
 
 export async function layHopChat(ten: string): Promise<HopChat | null> {
   const duLieu = await goiPug<BangThuocTinh>(
-    `/pug/compound/${duongDanHopChat(ten)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
+    `/pug/compound/${duongDanHopChat(ten)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,InChIKey,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
   );
   const p = duLieu?.PropertyTable?.Properties?.[0];
   if (!p) return null;
@@ -315,6 +318,7 @@ export async function layHopChat(ten: string): Promise<HopChat | null> {
     khoiLuongExact: soHoacNull(p.ExactMass ?? ""),
     iupac: p.IUPACName ?? null,
     smiles: p.ConnectivitySMILES ?? p.SMILES ?? null,
+    inchikey: p.InChIKey ?? null,
     xLogP: p.XLogP ?? null,
     tpsa: p.TPSA ?? null,
     hbd: p.HBondDonorCount ?? null,
@@ -357,8 +361,73 @@ interface BanGhi3D {
   }[];
 }
 
+interface ConformerCache {
+  cid: number;
+  congThuc: string | null;
+  khoiLuongMol: number | null;
+  nguyenTu: NguyenTu3D[];
+  lienKet: LienKet3D[];
+}
+
+/**
+ * Đọc conformer 3D đã đồng bộ sẵn trong Postgres (khớp alias CHÍNH XÁC, không
+ * dấu/không phân biệt hoa thường — bảng compound_aliases đã có từ PHA 4) trước
+ * khi gọi mạng NCBI — xem docs/tim-kiem.md. Lỗi DB (mất kết nối, DATABASE_URL
+ * sai, chưa chạy db:push…) KHÔNG được làm hỏng tra cứu — chỉ rơi về gọi PubChem
+ * như trước khi có cache này, giống đúng quy tắc đã áp dụng cho /api/goi-y.
+ */
+async function layConformerTuCache(tenSach: string): Promise<ConformerCache | null> {
+  try {
+    // Import động: @/db throw ngay khi load nếu thiếu DATABASE_URL — pubchem.ts
+    // vẫn phải dùng được KHÔNG cần DB (vd. tests/unit/pubchem-parse.test.ts chỉ
+    // kiểm parsing thuần), nên import Postgres client CHỈ khi thực sự cần, trong
+    // try/catch này.
+    const { db } = await import("@/db");
+    const { rows } = await db.execute<{
+      cid: number;
+      congThuc: string | null;
+      khoiLuongMol: number | null;
+      conformers3d: unknown;
+    }>(sql`
+      SELECT c.cid, c.cong_thuc AS "congThuc", c.khoi_luong_mol AS "khoiLuongMol",
+             c.conformers_3d AS "conformers3d"
+      FROM compound_aliases a
+      JOIN compound_cache c ON c.cid = a.cid
+      WHERE f_unaccent(lower(a.alias)) = f_unaccent(lower(${tenSach}))
+        AND c.conformers_3d IS NOT NULL
+      LIMIT 1
+    `);
+    const r = rows[0];
+    const banGhi3d = r?.conformers3d as { nguyenTu?: NguyenTu3D[]; lienKet?: LienKet3D[] } | undefined;
+    if (!r || !banGhi3d?.nguyenTu) return null;
+    return {
+      cid: r.cid,
+      congThuc: r.congThuc,
+      khoiLuongMol: r.khoiLuongMol,
+      nguyenTu: banGhi3d.nguyenTu,
+      lienKet: banGhi3d.lienKet ?? [],
+    };
+  } catch (e) {
+    console.error("[pubchem] Đọc conformer cache lỗi, rơi về PubChem:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 export async function layHopChat3D(ten: string, thuocTinhDaCo?: HopChat | null): Promise<HopChat3D | null> {
   const tenSach = ten.trim().slice(0, 120);
+
+  const tuCache = await layConformerTuCache(tenSach);
+  if (tuCache) {
+    return {
+      cid: tuCache.cid,
+      tenTruyVan: ten,
+      congThuc: thuocTinhDaCo?.congThuc ?? tuCache.congThuc,
+      khoiLuongMol: thuocTinhDaCo?.khoiLuongMol ?? tuCache.khoiLuongMol,
+      nguyenTu: tuCache.nguyenTu,
+      lienKet: tuCache.lienKet,
+    };
+  }
+
   // Không tự gọi layHopChat ở đây nữa — caller thường ĐÃ có thuộc tính rồi
   // (truyền qua thuocTinhDaCo). Trước đây lồng gọi khiến 1 lượt xem trang
   // hợp chất tốn 3 lệnh gọi PubChem cho cùng một chất, thay vì 2.
