@@ -48,7 +48,7 @@ export default function DieuHuong() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-[80] print:hidden transition-all duration-500 ${
+      className={`fixed inset-x-0 top-0 z-[80] transition-all duration-500 ${
         cuon ? "bg-sumi/80 backdrop-blur-md border-b border-washi/10" : "bg-transparent"
       }`}
     >

@@ -12,7 +12,6 @@ export const DIEU_HUONG = [
   { href: "/bang-tuan-hoan", nhan: "Bảng tuần hoàn", kanji: "周期" },
   { href: "/thi-nghiem", nhan: "Thí nghiệm ảo", kanji: "実験" },
   { href: "/hop-chat", nhan: "Hợp chất 3D", kanji: "分子" },
-  { href: "/so-tay", nhan: "Sổ tay", kanji: "帳" },
 ] as const;
 
 export const NGUON_DU_LIEU = {
