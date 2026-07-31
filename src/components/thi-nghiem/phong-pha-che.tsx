@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Droplets, FlaskRound, Loader2, RefreshCcw, Search } from "lucide-react";
 import type { HopChat } from "@/lib/pubchem";
-import NutLuuSoTay from "@/components/so-tay/nut-luu-so-tay";
 
 const CHAT_GOI_Y = [
   { ten: "NaOH", nhan: "NaOH — xút" },
@@ -194,14 +193,6 @@ export default function PhongPhaChe({
                 Cân {m ? m.toFixed(2) : "…"} g {hopChat ? congThucCoChuSo(hopChat.congThuc) : ""}
               </p>
             </div>
-            {m != null && (
-              <NutLuuSoTay
-                loaiPhong="pha-che"
-                tieuDe={`Hòa tan ${hopChat?.congThuc ?? nhap} — ${c.toFixed(2)} M, ${v} mL`}
-                thamSo={{ cheDo: "hoa-tan", chat: hopChat?.congThuc ?? nhap, C: c, V: v }}
-                ketQua={{ n: (c * v) / 1000, m }}
-              />
-            )}
           </div>
         ) : (
           <div className="space-y-5">
@@ -224,14 +215,6 @@ export default function PhongPhaChe({
                 </p>
               )}
             </div>
-            {v1Giai !== null && v2Giai !== null && (
-              <NutLuuSoTay
-                loaiPhong="pha-che"
-                tieuDe={`Pha loãng — ${c1.toFixed(2)} M → ${c2.toFixed(2)} M`}
-                thamSo={{ cheDo: "pha-loang", C1: c1, C2: c2, V1: v1, V2: v2 }}
-                ketQua={{ V1: v1Giai, V2: v2Giai }}
-              />
-            )}
           </div>
         )}
       </div>

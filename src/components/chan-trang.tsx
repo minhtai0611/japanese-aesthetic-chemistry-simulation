@@ -4,7 +4,7 @@ import { DIEU_HUONG, NGUON_DU_LIEU, SITE } from "@/lib/site";
 
 export default function ChanTrang() {
   return (
-    <footer className="hoa-van-song relative border-t border-washi/10 bg-sumi-nhat print:hidden">
+    <footer className="hoa-van-song relative border-t border-washi/10 bg-sumi-nhat">
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>

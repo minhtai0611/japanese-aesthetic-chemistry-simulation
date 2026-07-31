@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { pHChuanDo, laDiemTuongDuong } from "@/lib/hoa-hoc/chuan-do";
-import NutLuuSoTay from "@/components/so-tay/nut-luu-so-tay";
 
 function mauLongTheoPh(pH: number): string {
   if (pH < 8.2) return "#cfdde6"; // phenolphtalein không màu
@@ -229,13 +228,6 @@ export default function PhongChuanDo() {
                 ? "Trước điểm tương đương — dư axit"
                 : "Quá điểm tương đương — dư bazơ"}
           </p>
-          <NutLuuSoTay
-            className="mt-4"
-            loaiPhong="chuan-do"
-            tieuDe={`Chuẩn độ ${ca.toFixed(2)} M HCl bằng ${cb.toFixed(2)} M NaOH`}
-            thamSo={{ Ca: ca, Cb: cb, Va: va }}
-            ketQua={{ Vb: vb, pH, laDiemTuongDuong: laDiemTuongDuong(ca, va, cb, vb) }}
-          />
         </div>
 
         {/* Tham số */}
