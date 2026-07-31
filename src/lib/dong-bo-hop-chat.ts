@@ -55,6 +55,10 @@ async function dongBoMotChat(ten: string, aliases: AliasEntry[]): Promise<KetQua
   const baChieu = await layHopChat3D(ten, thuocTinh);
   const co3D = baChieu !== null;
 
+  // conformers3d lưu đúng hình dạng { nguyenTu, lienKet } mà layConformerTuCache
+  // (src/lib/pubchem.ts) đọc lại — null khi không có 3D, không suy đoán dữ liệu.
+  const conformers3d = baChieu ? { nguyenTu: baChieu.nguyenTu, lienKet: baChieu.lienKet } : null;
+
   await db
     .insert(compoundCache)
     .values({
@@ -64,8 +68,10 @@ async function dongBoMotChat(ten: string, aliases: AliasEntry[]): Promise<KetQua
       khoiLuongMol: thuocTinh.khoiLuongMol,
       iupac: thuocTinh.iupac,
       smiles: thuocTinh.smiles,
+      inchikey: thuocTinh.inchikey,
       xLogP: thuocTinh.xLogP,
       co3D,
+      conformers3d,
       laGiaoDuc: true,
       daXacThuc: true,
       xacThucLuc: sql`now()`,
@@ -78,8 +84,10 @@ async function dongBoMotChat(ten: string, aliases: AliasEntry[]): Promise<KetQua
         khoiLuongMol: thuocTinh.khoiLuongMol,
         iupac: thuocTinh.iupac,
         smiles: thuocTinh.smiles,
+        inchikey: thuocTinh.inchikey,
         xLogP: thuocTinh.xLogP,
         co3D,
+        conformers3d,
         laGiaoDuc: true,
         daXacThuc: true,
         xacThucLuc: sql`now()`,
