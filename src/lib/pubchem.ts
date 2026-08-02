@@ -14,6 +14,7 @@ import { BO_TRI, TEN_VI, DICH_GIA_DINH } from "./nguyen-to";
 import { lopVoTuCauHinh } from "./electron-config";
 import { dichTenHopChat, goiYTenTiengViet } from "./alias-hop-chat";
 import { sql } from "drizzle-orm";
+import { TY_LE_TOA_DO_3D } from "./ty-le-toa-do-3d";
 
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
 const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
@@ -445,9 +446,9 @@ export async function layHopChat3D(ten: string, thuocTinhDaCo?: HopChat | null):
 
   const nguyenTu: NguyenTu3D[] = pc.atoms.element.map((so, i) => ({
     so,
-    x: (x[i] - tx) * 0.62,
-    y: (y[i] - ty) * 0.62,
-    z: (z[i] - tz) * 0.62,
+    x: (x[i] - tx) * TY_LE_TOA_DO_3D,
+    y: (y[i] - ty) * TY_LE_TOA_DO_3D,
+    z: (z[i] - tz) * TY_LE_TOA_DO_3D,
   }));
 
   const lienKet: LienKet3D[] = (pc.bonds?.aid1 ?? []).map((a1, i) => ({
