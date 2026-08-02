@@ -21,8 +21,8 @@ export const CAC_PHONG = [
     kanji: "相転移",
     nhan: "Buồng chuyển pha",
     moTa:
-      "Đặt một nguyên tố vào lò. Khi nhiệt độ chạm mốc nóng chảy thật của nó — ví dụ sắt ở 1 811 K — mạng tinh thể sụp đổ thành dòng chảy; qua điểm sôi, từng hạt giành lấy tự do. Hai mốc nhiệt đều là số liệu đo từ PubChem.",
-    congThuc: "T < T_nc → rắn · T_nc ≤ T < T_s → lỏng · T ≥ T_s → khí",
+      "Đặt một nguyên tố vào lò rồi kéo cả nhiệt độ lẫn áp suất. Điểm nóng chảy là số liệu đo từ PubChem; điểm sôi dịch chuyển thật theo áp suất qua phương trình Clausius-Clapeyron, vẽ thành đường ranh giới sống động trên giản đồ pha P-T.",
+    congThuc: "ln(P/P₁) = -(ΔH_vap/R)(1/T - 1/T₁)",
   },
   {
     slug: "can-bang",
