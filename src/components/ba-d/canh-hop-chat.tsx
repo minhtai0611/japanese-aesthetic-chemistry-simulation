@@ -8,9 +8,14 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { MatPhanTu, banKinhBaoQuanh, useBanMauNguyenTo } from "./mat-phan-tu";
 import type { HopChat3D } from "@/lib/pubchem";
+import type { KetQuaDoLuong } from "@/lib/hinh-hoc-do-luong";
 
 // Tách riêng khỏi chunk chính — xem giải thích ở đầu hieu-ung-hau-xu-ly.tsx.
 const HieuUngHopChat = dynamic(() => import("./hieu-ung-hau-xu-ly").then((m) => m.HieuUngHopChat), { ssr: false });
+// Bề mặt VDW + công cụ đo lường — chỉ tải khi người dùng chủ động bật (nangCaoBat),
+// KHÔNG ảnh hưởng trọng lượng chunk mặc định của khán đài 3D.
+const BeMatVdW = dynamic(() => import("./be-mat-vdw").then((m) => m.BeMatVdW), { ssr: false });
+const LopDoLuong = dynamic(() => import("./do-luong-phan-tu").then((m) => m.LopDoLuong), { ssr: false });
 
 /**
  * three.js's WebGLRenderer.dispose() does not release the GPU-side context —
@@ -26,10 +31,13 @@ function GiaiPhongContext() {
   return null;
 }
 
-function TrucXoay({ duLieu, tuXoay, banMau }: {
+function TrucXoay({ duLieu, tuXoay, banMau, nangCaoBat, daSanSang, onKetQuaDoLuongDoi }: {
   duLieu: HopChat3D;
   tuXoay: boolean;
   banMau: ReturnType<typeof useBanMauNguyenTo>;
+  nangCaoBat: boolean;
+  daSanSang: boolean;
+  onKetQuaDoLuongDoi?: (k: KetQuaDoLuong) => void;
 }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((_s, dt) => {
@@ -42,6 +50,12 @@ function TrucXoay({ duLieu, tuXoay, banMau }: {
   return (
     <group ref={ref}>
       <MatPhanTu duLieu={duLieu} banMau={banMau} phatSang={0.42} />
+      {/* Cùng nhóm xoay với nguyên tử/liên kết — vỏ VDW và điểm chọn đo lường
+          phải quay theo, không đứng yên khi tuXoay bật. */}
+      {nangCaoBat && daSanSang && <BeMatVdW duLieu={duLieu} banMau={banMau} />}
+      {nangCaoBat && daSanSang && (
+        <LopDoLuong duLieu={duLieu} onKetQuaDoLuongDoi={onKetQuaDoLuongDoi} />
+      )}
     </group>
   );
 }
@@ -88,9 +102,14 @@ function DongBoKhungHinh({
 export default function CanhHopChat({
   duLieu,
   tuXoay = true,
+  nangCaoBat = false,
+  onKetQuaDoLuongDoi,
 }: {
   duLieu: HopChat3D;
   tuXoay?: boolean;
+  /** Bật vỏ VDW + công cụ đo khoảng cách/góc — tắt mặc định (progressive enhancement). */
+  nangCaoBat?: boolean;
+  onKetQuaDoLuongDoi?: (k: KetQuaDoLuong) => void;
 }) {
   const banMau = useBanMauNguyenTo();
   // Đợi scene chính vẽ xong khung hình đầu rồi mới tải chunk postprocessing —
@@ -131,7 +150,14 @@ export default function CanhHopChat({
         <pointLight position={[0, -4, 4]} intensity={10} color="#d63b1f" distance={20} />
         <GiaiPhongContext />
         <Suspense fallback={null}>
-          <TrucXoay duLieu={duLieu} tuXoay={tuXoay} banMau={banMau} />
+          <TrucXoay
+            duLieu={duLieu}
+            tuXoay={tuXoay}
+            banMau={banMau}
+            nangCaoBat={nangCaoBat}
+            daSanSang={daSanSang}
+            onKetQuaDoLuongDoi={onKetQuaDoLuongDoi}
+          />
           {/* vòng đài */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -banKinh - 0.15, 0]}>
             <ringGeometry args={[banKinh * 0.9, banKinh * 0.92, 96]} />
