@@ -18,7 +18,7 @@ A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 1
 
 ## Data policy
 
-This app does not fabricate chemistry data. Every element/compound value is sourced directly from [PubChem PUG-REST](https://pubchem.ncbi.nlm.nih.gov/rest/pug) (NCBI, public, no API key) and synced with a controlled cache (`revalidate: 7 days`) — pages are **not** queried live against PubChem on every pageview, in line with [PubChem's usage policy](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest-tutorial) of staying under 5 requests/second against a shared public server. Simulated calculations (pH, dilution `C₁V₁=C₂V₂`, molarity `n=m/M`, phase transitions, equation balancing via Gauss-Jordan) are real formulas/algorithms computed on top of that real data — never estimated, invented, or delegated to an LLM. See `docs/adr/` for the reasoning behind these decisions in more depth.
+This app does not fabricate chemistry data. Every element/compound value is sourced directly from [PubChem PUG-REST](https://pubchem.ncbi.nlm.nih.gov/rest/pug) (NCBI, public, no API key) and synced with a controlled cache (`revalidate: 7 days`) — pages are **not** queried live against PubChem on every pageview, in line with [PubChem's usage policy](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest-tutorial) of staying under 5 requests/second against a shared public server. That limit is enforced by a distributed token-bucket rate limiter backed by Postgres (`src/lib/rate-limiter.ts`), not an in-process counter — so the real, aggregate request rate stays under the ceiling even across multiple concurrent Vercel serverless instances. Simulated calculations (pH, dilution `C₁V₁=C₂V₂`, molarity `n=m/M`, phase transitions, equation balancing via Gauss-Jordan) are real formulas/algorithms computed on top of that real data — never estimated, invented, or delegated to an LLM. See `docs/adr/` for the reasoning behind these decisions in more depth.
 
 ### Provenance / certainty
 
@@ -30,7 +30,7 @@ PubChem marks some superheavy elements' standard state as `"Expected to be a ...
 flowchart LR
   U[Học sinh / Học viên] --> N[Next.js App Router]
   N -->|DB trước| P[(Postgres / Neon<br/>cache · aliases)]
-  N -->|fallback, semaphore 4 req/s| C[PubChem PUG-REST]
+  N -->|fallback, token-bucket 4 req/s qua Postgres| C[PubChem PUG-REST]
   P -.->|cron thứ 2 hàng tuần| C
   N --> W[three.js / React Three Fiber<br/>fallback SVG 2D khi không có WebGL]
 ```
