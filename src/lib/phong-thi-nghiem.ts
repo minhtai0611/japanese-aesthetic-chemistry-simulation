@@ -1,4 +1,4 @@
-/** Ba phòng thí nghiệm ảo — dùng cho hub /thi-nghiem, route con và điều hướng chéo */
+/** Năm phòng thí nghiệm ảo — dùng cho hub /thi-nghiem, route con và điều hướng chéo */
 export const CAC_PHONG = [
   {
     slug: "pha-che",
@@ -31,6 +31,14 @@ export const CAC_PHONG = [
     moTa:
       "Gõ chất phản ứng và sản phẩm — máy dựng ma trận nguyên tố rồi khử Gauss-Jordan trên số hữu tỉ để tìm bộ hệ số nguyên dương nhỏ nhất. Toán tất định 100%, không đoán, không AI.",
     congThuc: "A·x = 0 · khử Gauss trên ℚ · BCNN/UCLN → nghiệm nguyên nhỏ nhất",
+  },
+  {
+    slug: "pin-dien-hoa",
+    kanji: "電池",
+    nhan: "Pin điện hóa Galvanic",
+    moTa:
+      "Chọn hai kim loại làm điện cực — máy tra thế điện cực chuẩn đã ghim (CRC Handbook of Chemistry and Physics), tính điện thế pin thật qua phương trình Nernst theo nồng độ ion bạn kéo, rồi suy ra ΔG° của phản ứng oxi hóa-khử tổng quát.",
+    congThuc: "E = E° + (RT/nF)ln[Mⁿ⁺] · E_cell = E_cathode − E_anode · ΔG° = −nFE°_cell",
   },
 ] as const;
 
