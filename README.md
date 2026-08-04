@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml)
 
-A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 118-element periodic table, 3D molecule/compound viewers, and interactive virtual-lab experiments (titration, dilution, phase-change, equation balancing) — styled with a Japanese aesthetic, kanji labels alongside Vietnamese copy.
+A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 118-element periodic table, 3D molecule/compound viewers (with a Van der Waals surface layer and an Angstrom/degree measurement tool), chemical structure search (SMILES/IUPAC/InChIKey/weight), and interactive virtual-lab experiments (titration, dilution, phase-change with a P-T diagram, equation balancing, reaction thermodynamics, electrochemistry) — styled with a Japanese aesthetic, kanji labels alongside Vietnamese copy.
 
 **Live:** https://japanese-aesthetic-chemistry-simula.vercel.app
 
@@ -45,7 +45,7 @@ Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết
 | Lỗi 5xx trên URL surface | 14 | **0** | `npm run audit:urls` |
 | Lỗ hổng npm mức HIGH | 12 | **0** | `npm audit --audit-level=high` |
 | Alias tiếng Việt bị sập (500) | 14/39 | **0/39** | `curl .../hop-chat/n%C6%B0%E1%BB%9Bc` → 200 (qua 308) |
-| Test tự động (unit) | 0 | **252 PASS** | `npm run test` |
+| Test tự động (unit) | 0 | **294 PASS** | `npm run test` |
 | Test tự động (E2E) | 0 | **6/6 PASS** | `npm run test:e2e` |
 | Cân bằng phương trình đúng | — | **50/50** | `npm run test` (`can-bang.test.ts`) |
 | Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config-118.test.ts`, quét toàn bộ 118 nguyên tố với dữ liệu PubChem thật) |
@@ -103,18 +103,18 @@ Open [http://localhost:3000](http://localhost:3000).
 - `src/app/` — routes:
   - `/` (home), `/bang-tuan-hoan` (periodic table), `/nguyen-to/[kyhieu]` (element detail)
   - `/hop-chat` (3D compound viewer, SSR'd with a default compound) and `/hop-chat/[ten]` — real, indexable, shareable permalinks per compound (own metadata/canonical/OG image, `generateStaticParams` over the featured list)
-  - `/thi-nghiem` (lab hub/landing) plus dedicated routes per room: `/thi-nghiem/pha-che`, `/thi-nghiem/chuan-do`, `/thi-nghiem/chuyen-pha`, `/thi-nghiem/can-bang` — each with its own metadata and code-split bundle
+  - `/thi-nghiem` (lab hub/landing) plus dedicated routes per room: `/thi-nghiem/pha-che` (dilution), `/thi-nghiem/chuan-do` (titration), `/thi-nghiem/chuyen-pha` (phase transition, with a P-T diagram via Clausius-Clapeyron), `/thi-nghiem/can-bang` (equation balancing), `/thi-nghiem/pin-dien-hoa` (galvanic cell via the Nernst equation) — each with its own metadata and code-split bundle
   - `src/app/opengraph-image.tsx` / `src/app/hop-chat/[ten]/opengraph-image.tsx` — dynamically generated OG images (no static image asset to go stale/404)
   - API routes under `src/app/api/*`
-- `src/components/ba-d/` — three.js scene components (hero, compound scene, molecule mesh, 2D SVG fallback).
+- `src/components/ba-d/` — three.js scene components (hero, compound scene, molecule mesh, 2D SVG fallback, toggleable Van der Waals surface shader and Angstrom/degree atom-click measurement tool, both lazy-loaded only after explicit user opt-in).
 - `src/components/bang-tuan-hoan/`, `src/components/thi-nghiem/`, `src/components/hop-chat/` — feature UI per route.
 - `src/lib/pubchem.ts` — PubChem PUG-REST client (the only source of chemistry data); also resolves CID-only queries and Vietnamese aliases (`src/lib/alias-hop-chat.ts`) before hitting PubChem.
 - `src/lib/electron-config.ts` — noble-gas-notation electron shell expansion, used by `pubchem.ts`.
-- `src/lib/hoa-hoc/` — pure chemistry math: titration (`chuan-do.ts`), molar mass (`khoi-luong-mol.ts`), equation balancing via exact-rational Gauss-Jordan (`can-bang.ts`), formula parsing (`parser-cong-thuc.ts`), reaction thermodynamics (`nhiet-dong.ts` — ΔH°rxn/ΔG°rxn via Hess's law, served through `/api/nhiet-dong` since it needs server-only network/secret access; see the file header for why Wikidata was tried and rejected as a data source, and why NIST WebBook and Materials Project each play a narrow, clearly-labeled role instead of one blended number).
+- `src/lib/hoa-hoc/` — pure chemistry math: titration (`chuan-do.ts`), molar mass (`khoi-luong-mol.ts`), equation balancing via exact-rational Gauss-Jordan (`can-bang.ts`), formula parsing (`parser-cong-thuc.ts`), reaction thermodynamics (`nhiet-dong.ts` — ΔH°rxn/ΔG°rxn via Hess's law, served through `/api/nhiet-dong` since it needs server-only network/secret access; see the file header for why Wikidata was tried and rejected as a data source, and why NIST WebBook and Materials Project each play a narrow, clearly-labeled role instead of one blended number), P-T phase diagrams (`gian-do-pha.ts` — Clausius-Clapeyron), electrochemistry (`nernst.ts`, `the-dien-cuc-chuan.ts` — galvanic-cell EMF via the Nernst equation over real standard-electrode-potential data).
 - `src/lib/nguyen-to.ts` — element name/translation tables.
 - `src/lib/site.ts` — site metadata/nav.
 - `src/lib/hop-chat-noi-bat.ts`, `src/lib/phong-thi-nghiem.ts`, `src/lib/slug.ts`, `src/lib/dinh-danh-chat.ts` — shared constants/helpers for the compound permalinks and lab rooms (see `docs/adr/0002-*` and `0003-*`).
-- `src/lib/tim-kiem.ts` — Vietnamese diacritic-insensitive + typo-tolerant compound search over Postgres (`to_tsvector`/`pg_trgm`, no AI); `/api/goi-y` tries this first, falls back to PubChem autocomplete if the DB is unreachable or has no match.
+- `src/lib/tim-kiem.ts` — Vietnamese diacritic-insensitive + typo-tolerant compound search over Postgres (`to_tsvector`/`pg_trgm`, no AI); `/api/goi-y` tries this first, falls back to PubChem autocomplete if the DB is unreachable or has no match. Also exposes `timCauTrucHoaHoc()` — substring match over SMILES/IUPAC/InChIKey plus an optional molecular-weight range, via `/api/tim-kiem`, backed by trigram GIN indexes on `compound_cache`.
 - `src/lib/dong-bo-hop-chat.ts` — syncs `compound_cache`/`compound_aliases` from real PubChem data; shared by `scripts/seed-compounds.ts` (manual) and `/api/cron/sync` (scheduled, see `vercel.json`).
 - `src/app/quan-tri/tu-khoa-thieu/` — token-gated (`QUAN_TRI_TOKEN`) dashboard of search queries with no results, to grow `ALIAS_HOP_CHAT` from real usage instead of guessing.
 - `src/db/schema.ts` — Drizzle schema for the internal search/cache layer (see `docs/tim-kiem.md`).
