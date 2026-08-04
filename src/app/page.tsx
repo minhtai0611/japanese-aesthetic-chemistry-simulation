@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight, ArrowUpRight, Atom, Database, Droplets, FlaskConical,
-  Scale, Thermometer, Sigma, Waypoints,
+  Scale, Thermometer, Sigma, Waypoints, Zap,
 } from "lucide-react";
 import HeroNen from "@/components/hero-nen";
 import HienDan from "@/components/hien-dan";
@@ -16,6 +16,7 @@ const ICON_PHONG = {
   "chuan-do": FlaskConical,
   "chuyen-pha": Thermometer,
   "can-bang": Scale,
+  "pin-dien-hoa": Zap,
 } as const;
 
 export default async function TrangChu() {
@@ -123,12 +124,12 @@ export default async function TrangChu() {
         </div>
       </section>
 
-      {/* ===================== TỨ ĐẠI THÍ NGHIỆM ===================== */}
+      {/* ===================== NGŨ ĐẠI THÍ NGHIỆM ===================== */}
       <section className="hoa-van-song relative mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <HienDan>
-          <p className="chi-muc mb-3 text-shu-sang">四つの実験 — Tứ đại thí nghiệm</p>
+          <p className="chi-muc mb-3 text-shu-sang">五つの実験 — Ngũ đại thí nghiệm</p>
           <h2 className="max-w-2xl font-display text-3xl font-bold leading-tight sm:text-5xl">
-            Bốn nghi lễ trong một <em className="text-kin">phòng thí nghiệm</em> không giới hạn
+            Năm nghi lễ trong một <em className="text-kin">phòng thí nghiệm</em> không giới hạn
           </h2>
         </HienDan>
 

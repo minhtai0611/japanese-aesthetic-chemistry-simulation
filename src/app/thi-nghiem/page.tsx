@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Droplets, FlaskConical, Scale, Thermometer } from "lucide-react";
+import { ArrowUpRight, Droplets, FlaskConical, Scale, Thermometer, Zap } from "lucide-react";
 import HienDan from "@/components/hien-dan";
 import { CAC_PHONG } from "@/lib/phong-thi-nghiem";
 
 export const metadata: Metadata = {
-  title: "Phòng thí nghiệm ảo — Chuẩn độ, pha loãng, chuyển pha, cân bằng",
+  title: "Phòng thí nghiệm ảo — Chuẩn độ, pha loãng, chuyển pha, cân bằng, điện hóa",
   description:
-    "Bốn phòng thí nghiệm ảo tương tác bằng tiếng Việt: pha chế & pha loãng dung dịch với khối lượng mol thật, chuẩn độ axit–bazơ vẽ đường cong pH thời gian thực, buồng chuyển pha quanh điểm nóng chảy–điểm sôi thực nghiệm từ PubChem, và cân bằng phương trình bằng đại số tuyến tính.",
+    "Năm phòng thí nghiệm ảo tương tác bằng tiếng Việt: pha chế & pha loãng dung dịch với khối lượng mol thật, chuẩn độ axit–bazơ vẽ đường cong pH thời gian thực, buồng chuyển pha quanh điểm nóng chảy–điểm sôi thực nghiệm từ PubChem, cân bằng phương trình bằng đại số tuyến tính, và pin điện hóa Galvanic qua phương trình Nernst.",
   alternates: { canonical: "/thi-nghiem" },
 };
 
@@ -16,6 +16,7 @@ const ICON = {
   "chuan-do": FlaskConical,
   "chuyen-pha": Thermometer,
   "can-bang": Scale,
+  "pin-dien-hoa": Zap,
 } as const;
 
 export default function TrangThiNghiem() {
@@ -24,7 +25,7 @@ export default function TrangThiNghiem() {
       <HienDan>
         <p className="chi-muc mb-4 text-shu-sang">実験室 — Virtual Laboratory</p>
         <h1 className="max-w-3xl font-display text-4xl font-black leading-tight sm:text-6xl">
-          Bốn phòng <em className="text-shu-sang">thí nghiệm</em>, một niềm tin khoa học
+          Năm phòng <em className="text-shu-sang">thí nghiệm</em>, một niềm tin khoa học
         </h1>
         <p className="mt-6 max-w-2xl leading-relaxed text-washi-mo">
           Mỗi mô phỏng dưới đây được xây trên hai cột trụ: <strong className="text-washi">số liệu thật</strong> từ

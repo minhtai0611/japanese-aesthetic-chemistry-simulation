@@ -6,7 +6,7 @@
  * Xem `docs/tim-kiem.md` để biết luồng tra cứu DB-trước/PubChem-sau.
  */
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 /** Bản sao gọn các thuộc tính PubChem đã tra cứu — tránh gọi lại PUG-REST cho cùng CID */
 export const compoundCache = pgTable(
@@ -99,4 +99,20 @@ export const searchLogs = pgTable("search_logs", {
   tuKhoa: text("tu_khoa").notNull(),
   coKetQua: integer("co_ket_qua").notNull(), // 0 = không có kết quả, 1 = có
   taoLuc: timestamp("tao_luc").defaultNow().notNull(),
+});
+
+
+/**
+ * Token-bucket phân tán cho giới hạn tốc độ gọi PubChem PUG-REST — thay
+ * semaphore trong-process cũ (đã xoá khỏi pubchem.ts), vốn không điều phối
+ * được giữa các Vercel serverless instance khác nhau. Một dòng duy nhất
+ * (key="pubchem_pug_rest") — xem src/lib/rate-limiter.ts cho logic nạp lại +
+ * tiêu token nguyên tử qua INSERT ... ON CONFLICT DO UPDATE ... WHERE.
+ * `tokens` PHẢI là kiểu thực (real) — nạp lại là elapsed_seconds × tốc độ,
+ * một lượng phân số; lưu dạng integer sẽ làm tròn mất phần dư mỗi lần gọi.
+ */
+export const apiTokenBucket = pgTable("api_token_bucket", {
+  key: varchar("key", { length: 32 }).primaryKey(),
+  tokens: real("tokens").notNull(),
+  lastRefreshed: timestamp("last_refreshed", { withTimezone: true }).defaultNow().notNull(),
 });
