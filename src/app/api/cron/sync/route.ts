@@ -13,7 +13,7 @@ export const maxDuration = 60;
  */
 export async function GET(yeu: Request) {
   const bimat = process.env.CRON_SECRET;
-  if (bimat && yeu.headers.get("authorization") !== `Bearer ${bimat}`) {
+  if (!bimat || yeu.headers.get("authorization") !== `Bearer ${bimat}`) {
     return NextResponse.json({ loi: "unauthorized" }, { status: 401 });
   }
 
