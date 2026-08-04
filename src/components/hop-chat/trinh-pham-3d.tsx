@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Atom, Check, Copy, ExternalLink, Loader2, Orbit, Pause, RotateCw, Search,
+  Atom, Check, Copy, ExternalLink, Loader2, Orbit, Pause, Ruler, RotateCw, Search,
 } from "lucide-react";
 import type { HopChat, HopChat3D } from "@/lib/pubchem";
+import type { KetQuaDoLuong } from "@/lib/hinh-hoc-do-luong";
 import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
 import { slugHoaHopChat } from "@/lib/slug";
 import { useGiamChuyenDong } from "@/lib/dung-chuyen-dong";
@@ -58,6 +59,8 @@ export default function TrinhPham3D({
   const [kichHoatThuCong, setKichHoatThuCong] = useState(false);
   const hienThi3D = !dung2D && (dangHienThi || kichHoatThuCong);
   const banMau = useBanMauNguyenTo();
+  const [nangCaoBat, setNangCaoBat] = useState(false);
+  const [ketQuaDoLuong, setKetQuaDoLuong] = useState<KetQuaDoLuong>(null);
 
   const tai = useCallback(async (ten: string) => {
     const q = ten.trim();
@@ -171,7 +174,12 @@ export default function TrinhPham3D({
           <p className="chu-doc absolute left-5 top-6 z-10 text-[10px] text-washi/25">分子 — phân tử</p>
           {baChieu ? (
             hienThi3D ? (
-              <CanhHopChat duLieu={baChieu} tuXoay={tuXoay} />
+              <CanhHopChat
+                duLieu={baChieu}
+                tuXoay={tuXoay}
+                nangCaoBat={nangCaoBat}
+                onKetQuaDoLuongDoi={setKetQuaDoLuong}
+              />
             ) : (
               <div className="absolute inset-0 p-8">
                 <PhanTu2D duLieu={baChieu} />
@@ -199,7 +207,7 @@ export default function TrinhPham3D({
             </button>
           )}
           {baChieu && hienThi3D && (
-            <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
+            <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => setTuXoay((v) => !v)}
                 className="flex items-center gap-2 rounded-full border border-washi/20 bg-sumi/70 px-4 py-2 text-xs backdrop-blur transition-colors hover:border-shu-sang"
@@ -207,10 +215,27 @@ export default function TrinhPham3D({
                 {tuXoay ? <Pause size={13} /> : <RotateCw size={13} />}
                 {tuXoay ? "Dừng xoay" : "Tự xoay"}
               </button>
+              <button
+                onClick={() => {
+                  setNangCaoBat((v) => !v);
+                  // Tắt chế độ nâng cao → xoá luôn kết quả đo cũ, tránh hiển thị
+                  // như một số liệu vẫn "còn hiệu lực" trong khi công cụ đã tắt.
+                  setKetQuaDoLuong(null);
+                }}
+                className="flex items-center gap-2 rounded-full border border-washi/20 bg-sumi/70 px-4 py-2 text-xs backdrop-blur transition-colors hover:border-shu-sang"
+              >
+                <Ruler size={13} />
+                {nangCaoBat ? "Tắt bề mặt VDW & đo lường" : "Bật bề mặt VDW & đo lường"}
+              </button>
               <span className="hidden rounded-full border border-washi/20 bg-sumi/70 px-4 py-2 text-[10px] text-washi-mo backdrop-blur sm:block">
                 Kéo để xoay · cuộn để phóng
               </span>
             </div>
+          )}
+          {nangCaoBat && hienThi3D && (
+            <p className="absolute left-1/2 top-6 z-10 -translate-x-1/2 rounded-full border border-washi/15 bg-sumi/70 px-3 py-1 text-[10px] text-washi-mo backdrop-blur">
+              Nhấp 2 nguyên tử để đo khoảng cách (Å) · nhấp thêm 1 để đo góc liên kết (°)
+            </p>
           )}
         </div>
 
@@ -257,6 +282,17 @@ export default function TrinhPham3D({
               ))}
             </dl>
           </div>
+
+          {ketQuaDoLuong && (
+            <div className="the-khac rounded-2xl p-4" aria-live="polite">
+              <p className="chi-muc text-shu-sang">Kết quả đo lường 3D</p>
+              <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-washi">
+                {ketQuaDoLuong.loai === "khoangCach"
+                  ? `d(#${ketQuaDoLuong.a + 1}–#${ketQuaDoLuong.b + 1}) = ${ketQuaDoLuong.angstrom.toFixed(3)} Å`
+                  : `∠(#${ketQuaDoLuong.a + 1}–#${ketQuaDoLuong.b + 1}–#${ketQuaDoLuong.c + 1}) = ${ketQuaDoLuong.do.toFixed(1)}°`}
+              </p>
+            </div>
+          )}
 
           {thuocTinh?.smiles && (
             <div className="the-khac rounded-2xl p-4">

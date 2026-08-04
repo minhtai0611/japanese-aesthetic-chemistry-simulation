@@ -14,6 +14,8 @@ import { BO_TRI, TEN_VI, DICH_GIA_DINH } from "./nguyen-to";
 import { lopVoTuCauHinh } from "./electron-config";
 import { dichTenHopChat, goiYTenTiengViet } from "./alias-hop-chat";
 import { sql } from "drizzle-orm";
+import { TY_LE_TOA_DO_3D } from "./ty-le-toa-do-3d";
+import { xinLuotPubChem } from "./rate-limiter";
 
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
 const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
@@ -24,25 +26,6 @@ export type KetQuaPug<T> =
   | { loai: "khong-co" } // PubChem khẳng định không tồn tại
   | { loai: "loi"; thongDiep: string }; // không hỏi được PubChem
 
-/** Semaphore toàn cục: tôn trọng chính sách <= 5 req/s của máy chủ công cộng NCBI */
-let dangChay = 0;
-const HANG_DOI: (() => void)[] = [];
-const TRAN = 4;
-
-async function xinLuot(): Promise<void> {
-  if (dangChay < TRAN) {
-    dangChay++;
-    return;
-  }
-  await new Promise<void>((r) => HANG_DOI.push(r));
-  dangChay++;
-}
-
-function traLuot() {
-  dangChay--;
-  HANG_DOI.shift()?.();
-}
-
 /**
  * Gọi PubChem PUG-REST, phân biệt rõ 3 trạng thái: có dữ liệu, PubChem khẳng
  * định không có (404 hoặc {Fault}), hoặc không hỏi được (mạng lỗi, timeout,
@@ -51,37 +34,33 @@ function traLuot() {
  * không tồn tại" và 404 nướng cứng vào bản tĩnh.
  */
 export async function goiPugAnToan<T>(duong: string, revalidate = TUAN): Promise<KetQuaPug<T>> {
-  await xinLuot();
-  try {
-    for (let lan = 0; lan <= 2; lan++) {
-      try {
-        const res = await fetch(`${PUG}${duong}`, {
-          next: { revalidate },
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout(8000),
-        });
+  for (let lan = 0; lan <= 2; lan++) {
+    try {
+      await xinLuotPubChem();
+      const res = await fetch(`${PUG}${duong}`, {
+        next: { revalidate },
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
 
-        // 404 từ PubChem = khẳng định không tồn tại
-        if (res.status === 404) return { loai: "khong-co" };
-        // 5xx / 429 = lỗi phía họ ⇒ retry
-        if (res.status >= 500 || res.status === 429) throw new Error(`upstream ${res.status}`);
-        if (!res.ok) return { loai: "loi", thongDiep: `HTTP ${res.status}` };
+      // 404 từ PubChem = khẳng định không tồn tại
+      if (res.status === 404) return { loai: "khong-co" };
+      // 5xx / 429 = lỗi phía họ ⇒ retry
+      if (res.status >= 500 || res.status === 429) throw new Error(`upstream ${res.status}`);
+      if (!res.ok) return { loai: "loi", thongDiep: `HTTP ${res.status}` };
 
-        const json = (await res.json()) as { Fault?: unknown } & T;
-        // PubChem trả HTTP 200 kèm {Fault} cho truy vấn sai — GIỮ guard này
-        if (json && typeof json === "object" && "Fault" in json) return { loai: "khong-co" };
-        return { loai: "co", duLieu: json as T };
-      } catch (e) {
-        if (lan === 2) {
-          return { loai: "loi", thongDiep: e instanceof Error ? e.message : String(e) };
-        }
-        await new Promise((s) => setTimeout(s, 300 * 2 ** lan)); // backoff mũ
+      const json = (await res.json()) as { Fault?: unknown } & T;
+      // PubChem trả HTTP 200 kèm {Fault} cho truy vấn sai — GIỮ guard này
+      if (json && typeof json === "object" && "Fault" in json) return { loai: "khong-co" };
+      return { loai: "co", duLieu: json as T };
+    } catch (e) {
+      if (lan === 2) {
+        return { loai: "loi", thongDiep: e instanceof Error ? e.message : String(e) };
       }
+      await new Promise((s) => setTimeout(s, 300 * 2 ** lan)); // backoff mũ
     }
-    return { loai: "loi", thongDiep: "hết lượt thử" };
-  } finally {
-    traLuot();
   }
+  return { loai: "loi", thongDiep: "hết lượt thử" };
 }
 
 /** Giữ chữ ký cũ cho code chưa migrate sang goiPugAnToan — nhưng LOG rõ khi nuốt lỗi */
@@ -445,9 +424,9 @@ export async function layHopChat3D(ten: string, thuocTinhDaCo?: HopChat | null):
 
   const nguyenTu: NguyenTu3D[] = pc.atoms.element.map((so, i) => ({
     so,
-    x: (x[i] - tx) * 0.62,
-    y: (y[i] - ty) * 0.62,
-    z: (z[i] - tz) * 0.62,
+    x: (x[i] - tx) * TY_LE_TOA_DO_3D,
+    y: (y[i] - ty) * TY_LE_TOA_DO_3D,
+    z: (z[i] - tz) * TY_LE_TOA_DO_3D,
   }));
 
   const lienKet: LienKet3D[] = (pc.bonds?.aid1 ?? []).map((a1, i) => ({
