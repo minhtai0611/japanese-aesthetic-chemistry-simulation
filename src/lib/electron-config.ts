@@ -1,32 +1,34 @@
 /**
- * Bộ mở rộng cấu hình electron dạng rút gọn khí hiếm, ví dụ "[Rn] 5f14 6d10 7s2 7p2".
+ * Expands a noble-gas-abbreviated electron configuration, e.g. "[Rn] 5f14 6d10 7s2 7p2".
  *
- * PubChem trả cấu hình electron ở dạng lồng nhau: mỗi nguyên tố tham chiếu tới khí hiếm
- * gần nhất ("[Xe]", "[Rn]"…), và bản thân khí hiếm đó lại được biểu diễn bằng khí hiếm
- * trước nó ("[Xe]" = "[Kr] 4d10 5s2 5p6"). Chuỗi lồng khí hiếm dài nhất trong bảng tuần
- * hoàn (Og, Z=118) đi qua Rn → Xe → Kr → Ar → Ne → He — 5 lượt thay thế. Bản gốc giới hạn
- * đệ quy ở 4 lượt nên toàn bộ 32 nguyên tố có lõi [Rn] (Z 87–118) bị rơi về lớp vỏ rỗng.
+ * PubChem returns electron configurations in nested form: each element
+ * references the nearest noble gas ("[Xe]", "[Rn]"…), and that noble gas
+ * itself is represented via the noble gas before it ("[Xe]" = "[Kr] 4d10
+ * 5s2 5p6"). The longest noble-gas nesting chain in the periodic table
+ * (Og, Z=118) goes through Rn → Xe → Kr → Ar → Ne → He — 5 substitution
+ * passes. The original code capped recursion at 4 passes, so all 32
+ * elements with a [Rn] core (Z 87–118) collapsed to an empty shell.
  */
-export function lopVoTuCauHinh(cauHinh: string, theoKyHieu: Map<string, { cauHinhElectron: string }>): number[] {
-  const lop = new Array<number>(7).fill(0);
-  if (!cauHinh) return lop.filter((x) => x > 0);
+export function electronShellConfig(config: string, bySymbol: Map<string, { electronConfig: string }>): number[] {
+  const shells = new Array<number>(7).fill(0);
+  if (!config) return shells.filter((x) => x > 0);
 
-  let cfg = cauHinh;
-  // Trần vòng lặp rộng rãi so với độ sâu lồng khí hiếm thật (tối đa 5) để an toàn với dữ liệu tương lai.
-  for (let vongLap = 0; vongLap < 12 && cfg.includes("["); vongLap++) {
-    const truoc = cfg;
-    cfg = cfg.replace(/\[([A-Za-z]{1,2})\]/g, (khop, kyHieu: string) => {
-      const loi = theoKyHieu.get(kyHieu);
-      return loi?.cauHinhElectron ? ` ${loi.cauHinhElectron} ` : "";
+  let cfg = config;
+  // Loop cap set generously above the real max nesting depth (5) as a safety margin for future data.
+  for (let loopIndex = 0; loopIndex < 12 && cfg.includes("["); loopIndex++) {
+    const previous = cfg;
+    cfg = cfg.replace(/\[([A-Za-z]{1,2})\]/g, (_match, symbol: string) => {
+      const entry = bySymbol.get(symbol);
+      return entry?.electronConfig ? ` ${entry.electronConfig} ` : "";
     });
-    if (cfg === truoc) break; // ký hiệu không giải được (dữ liệu lạ) — tránh vòng lặp vô ích
+    if (cfg === previous) break; // symbol couldn't be resolved (unexpected data) — avoid an endless loop
   }
 
-  const bm = /(\d)([spdf])(\d+)/g;
+  const pattern = /(\d)([spdf])(\d+)/g;
   let m: RegExpExecArray | null;
-  while ((m = bm.exec(cfg))) {
+  while ((m = pattern.exec(cfg))) {
     const n = Number(m[1]);
-    if (n >= 1 && n <= 7) lop[n - 1] += Number(m[3]);
+    if (n >= 1 && n <= 7) shells[n - 1] += Number(m[3]);
   }
-  return lop.filter((x) => x > 0);
+  return shells.filter((x) => x > 0);
 }

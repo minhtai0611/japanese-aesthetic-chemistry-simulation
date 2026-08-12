@@ -1,62 +1,67 @@
-# ADR 0001 — Tầng độ tin cậy dữ liệu: phân biệt đo đạc vs dự đoán
+# ADR 0001 — Data confidence tier: distinguishing measured vs. predicted
 
-## Bối cảnh
+## Context
 
-PubChem trả về trạng thái vật chất và cấu hình electron cho toàn bộ 118
-nguyên tố qua `/rest/pug/periodictable/JSON`, kể cả các nguyên tố siêu nặng
-tổng hợp (Z ≥ 104) chưa từng được quan sát ở lượng đủ để đo trực tiếp. Với
-những nguyên tố này, PubChem không xoá trống trường `StandardState` — thay
-vào đó ghi rõ bằng lời, ví dụ `"Expected to be a Solid"` thay vì `"Solid"`.
+PubChem returns physical state and electron configuration for all 118
+elements via `/rest/pug/periodictable/JSON`, including synthetic superheavy
+elements (Z ≥ 104) that have never been observed in a quantity large enough
+to measure directly. For these elements, PubChem doesn't leave the
+`StandardState` field blank — instead it spells it out in words, e.g.
+`"Expected to be a Solid"` instead of `"Solid"`.
 
-Nếu website hiển thị mọi nguyên tố như nhau ("Oganesson: Rắn"), đó là bịa đặt
-độ chắc chắn mà PubChem không hề khẳng định — vi phạm nguyên tắc "0 điểm dữ
-liệu tự chế" của dự án.
+If the website displayed every element the same way ("Oganesson: Solid"),
+that would fabricate a certainty PubChem never actually claims — a violation
+of the project's "zero fabricated data points" principle.
 
-## Quyết định
+## Decision
 
-Suy độ tin cậy **trực tiếp từ chính câu chữ** PubChem trả về, không dùng một
-danh sách cứng "26 nguyên tố chưa đo được":
+Derive the confidence level **directly from PubChem's own wording**, instead
+of a hard-coded list of "26 elements we can't measure":
 
 ```ts
 // src/lib/pubchem.ts
-function doTinCayTuTrangThaiGoc(goc: string): NguyenTo["trangThaiCertainty"] {
-  if (!goc) return "chua-xac-dinh";
-  return /expected/i.test(goc) ? "du-doan" : "do-dac";
+function confidenceFromOriginalState(raw: string): ElementInfo["trangThaiCertainty"] {
+  if (!raw) return "chua-xac-dinh";
+  return /expected/i.test(raw) ? "du-doan" : "do-dac";
 }
 ```
 
-Cùng một hàm suy ra cả `trangThaiCertainty` (trạng thái vật chất) lẫn
-`cauHinhElectronCertainty` (cấu hình electron) — vì cả hai đều đến từ cùng
-một tín hiệu nguồn (`StandardState`), không phải hai bảng tra độc lập dễ lệch
-pha khi PubChem cập nhật dữ liệu.
+The same function derives both `trangThaiCertainty` (physical state) and
+`cauHinhElectronCertainty` (electron configuration) — because both come from
+the same source signal (`StandardState`), rather than two independent lookup
+tables that could drift out of sync whenever PubChem updates its data.
 
-Ba mức kết quả:
-- `"do-dac"` — PubChem khẳng định thẳng, không có từ "expected"
-- `"du-doan"` — PubChem tự gắn nhãn "expected" (suy luận, chưa đo)
-- `"chua-xac-dinh"` — trường trống, không đủ căn cứ để nói gì
+Three possible outcomes:
+- `"do-dac"` ("measured") — PubChem states it outright, no "expected" wording
+- `"du-doan"` ("predicted") — PubChem itself labels it "expected" (inferred, not measured)
+- `"chua-xac-dinh"` ("undetermined") — field is empty, no basis to say anything
 
-UI hiển thị tương ứng: bảng tuần hoàn gắn dấu `*` bên số hiệu nguyên tử, trang
-`/nguyen-to/[kyhieu]` ghi rõ "Dự đoán: …" trước tên trạng thái, và buồng
-chuyển pha (Phase 6, §9.7) khoá chọn — nhưng vẫn hiển thị trong danh sách kèm
-chú thích — các nguyên tố không đủ số liệu nóng chảy/sôi đo được.
+The UI reflects this accordingly: the periodic table marks the atomic number
+with a `*`, the `/element/[symbol]` page states "Predicted: …" ahead of the
+state name, and the phase-change lab (Phase 6, §9.7) locks selection — while
+still listing, with an annotation — elements lacking measured melting/boiling
+data.
 
-## Vì sao không hard-code
+## Why not hard-code it
 
-Một danh sách tay "các nguyên tố dự đoán" sẽ:
-1. Lệch khỏi thực tế ngay khi PubChem đo được thêm một nguyên tố mới (Z=119,
-   120… đang được các phòng thí nghiệm theo đuổi) — phải nhớ cập nhật tay,
-   dễ quên.
-2. Là chính dạng "điểm dữ liệu tự chế" mà dự án cam kết không làm — gán nhãn
-   "dự đoán" cho một nguyên tố mà không dựa trên tín hiệu thật từ nguồn.
+A hand-maintained list of "predicted elements" would:
+1. Drift out of date the moment PubChem manages to measure a new element
+   (Z=119, 120... actively being pursued by labs) — someone has to remember
+   to update it, and that's easy to forget.
+2. Be exactly the kind of "fabricated data point" the project has committed
+   not to produce — labeling an element "predicted" without grounding that
+   label in an actual signal from the source.
 
-Suy trực tiếp từ câu chữ nguồn nghĩa là nhãn "dự đoán" luôn khớp với những gì
-PubChem *thực sự* nói tại thời điểm truy vấn — tự động đúng khi nguồn cập
-nhật, không cần sửa code.
+Deriving it directly from the source wording means the "predicted" label
+always matches what PubChem *actually* says at query time — automatically
+correct whenever the source updates, with no code change required.
 
-## Hệ quả
+## Consequences
 
-- Thêm state thứ ba (`"chua-xac-dinh"`) buộc mọi nơi hiển thị phải xử lý rõ
-  ràng trường hợp "không có dữ liệu" thay vì ngầm coi là `false`/`đo-dac`.
-- Cách tiếp cận này chỉ hoạt động vì PubChem code hoá độ chắc chắn ngay trong
-  câu chữ trả về — với một API khác không có quy ước tương tự, sẽ cần chiến
-  lược suy luận khác (ví dụ đối chiếu chéo nhiều nguồn).
+- Adding a third state (`"chua-xac-dinh"`) forces every display site to
+  explicitly handle the "no data" case instead of implicitly treating it as
+  `false`/measured.
+- This approach only works because PubChem encodes confidence directly in
+  its response wording — a different API without an equivalent convention
+  would need a different inference strategy (e.g. cross-referencing multiple
+  sources).

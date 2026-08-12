@@ -1,89 +1,92 @@
-# Lighthouse — kết quả đo thật, không phải mục tiêu lý thuyết
+# Lighthouse — real measured results, not theoretical targets
 
-Đo bằng `lighthouse` trực tiếp (Edge headless — máy đo không có Chrome cài
-sẵn) cho từng URL trong `.lighthouserc.json`, production build (`npm run
-build && npm run start`), không cache/CDN.
+Measured with `lighthouse` directly (Edge headless — the measuring machine has no
+Chrome installed) for each URL in `.lighthouserc.json`, production build (`npm run
+build && npm run start`), no cache/CDN.
 
-**Chú ý phương pháp đo:** dùng cờ `--chrome-flags="--headless=new --no-sandbox"`.
-TUYỆT ĐỐI KHÔNG thêm `--disable-gpu` — đã thử và three.js rơi về software
-rasterizer, cho số liệu vô nghĩa (TBT quan sát được 63.230 ms, một con số
-không thể xảy ra trên thiết bị thật). Môi trường đo này (máy chia sẻ CPU,
-không GPU rời) cũng có độ nhiễu run-to-run đáng kể — xem cột "biên độ đo".
+**Note on methodology:** using the flags `--chrome-flags="--headless=new --no-sandbox"`.
+ABSOLUTELY DO NOT add `--disable-gpu` — this was tried and three.js fell back to the
+software rasterizer, producing meaningless numbers (an observed TBT of 63,230 ms, a
+figure that cannot happen on a real device). This measuring environment (a
+CPU-shared machine, no discrete GPU) also has significant run-to-run noise — see the
+"measurement range" column.
 
-## Baseline gốc (trước khi hoãn mount WebGL theo viewport)
+## Original baseline (before deferring WebGL mount by viewport)
 
 | URL | Performance | Accessibility | SEO |
 |---|---|---|---|
-| `/` (hero 3D) | 30 | **100** | **100** |
+| `/` (3D hero) | 30 | **100** | **100** |
 | `/bang-tuan-hoan` | 66 | **100** | **100** |
-| `/hop-chat/caffeine` (khán đài phân tử 3D) | 40 | **100** | **100** |
+| `/hop-chat/caffeine` (3D molecule stage) | 40 | **100** | **100** |
 
-- `/`: LCP 9,1 s, Total Blocking Time 3.023 ms, Time to Interactive 11,1 s.
-- `/hop-chat/caffeine`: LCP 8,6 s, TBT 3.243 ms, TTI 10,3 s.
+- `/`: LCP 9.1 s, Total Blocking Time 3,023 ms, Time to Interactive 11.1 s.
+- `/hop-chat/caffeine`: LCP 8.6 s, TBT 3,243 ms, TTI 10.3 s.
 
-Nguyên nhân gốc: `dynamic(() => import(".../canh-hero"), { ssr: false })` và
-tương đương cho khán đài phân tử tải ngay khi component mount, không đợi
-người dùng cuộn tới hoặc dùng `IntersectionObserver` để hoãn khởi tạo WebGL
-context tới khi thực sự cần hiển thị.
+Root cause: `dynamic(() => import(".../canh-hero"), { ssr: false })` and the
+equivalent for the molecule stage loaded as soon as the component mounted, without
+waiting for the user to scroll into view or using `IntersectionObserver` to defer
+initializing the WebGL context until it's actually needed for display.
 
-## Sau khi hoãn mount theo viewport + tách riêng postprocessing (đo lại)
+## After deferring mount by viewport + splitting off postprocessing (re-measured)
 
-Đã làm: (1) `IntersectionObserver` (`lazy-canvas-wrapper.tsx`) hoãn mount
-`<Canvas>` của hero/khán đài phân tử tới khi vào khung nhìn hoặc người dùng
-bấm nút kích hoạt; (2) tách `@react-three/postprocessing` (Bloom/Vignette)
-khỏi chunk chính, chỉ tải sau khi scene chính đã render (idle callback); (3)
-giảm số phân đoạn hình cầu nguyên tử (`MatPhanTu`) từ 28×28 xuống 20×20.
+Done: (1) `IntersectionObserver` (`lazy-canvas-wrapper.tsx`) defers mounting the
+hero/molecule-stage `<Canvas>` until it enters the viewport or the user presses the
+activation button; (2) split `@react-three/postprocessing` (Bloom/Vignette) off from
+the main chunk, only loaded after the main scene has already rendered (idle
+callback); (3) reduced the atom sphere segment count (`MatPhanTu`) from 28×28 down
+to 20×20.
 
-| URL | Performance (biên độ đo, nhiều lần) | Accessibility | SEO |
+| URL | Performance (measurement range, multiple runs) | Accessibility | SEO |
 |---|---|---|---|
 | `/` | **45–46** | **100** | **100** |
 | `/hop-chat/caffeine` | **42–44** | **100** | **100** |
 
-- `/`: LCP 8,5–8,8 s, TBT 1.550–1.800 ms, TTI 8,9–9,3 s (2 lần đo).
-- `/hop-chat/caffeine`: LCP 7,4–9,9 s, TBT 2.590–4.060 ms, TTI 9,3–10,3 s
-  (3 lần đo) — biên độ đo tự nó đã lớn hơn tác động của bước tách
-  postprocessing, nên KHÔNG khẳng định bước (2)+(3) có cải thiện đo được
-  thật hay không trong môi trường này; chỉ bước (1) — hoãn mount theo
-  viewport — cho kết quả cải thiện rõ, lặp lại được (TBT giảm ~17–44% so
-  với baseline gốc trên cả hai trang).
-- `/bang-tuan-hoan` (không Canvas 3D, không bị ảnh hưởng bởi các bước trên):
-  đo lại ra 71 (từng là 66) — chênh lệch này là nhiễu đo giữa hai lần chạy
-  khác máy/khác thời điểm, không phải do thay đổi mã nguồn (trang này không
-  dùng WebGL).
+- `/`: LCP 8.5–8.8 s, TBT 1,550–1,800 ms, TTI 8.9–9.3 s (2 runs).
+- `/hop-chat/caffeine`: LCP 7.4–9.9 s, TBT 2,590–4,060 ms, TTI 9.3–10.3 s
+  (3 runs) — the measurement range itself is already larger than the effect of the
+  postprocessing-split step, so we CANNOT claim that steps (2)+(3) produced a
+  measurable improvement in this environment; only step (1) — deferring mount by
+  viewport — shows a clear, repeatable improvement (TBT down ~17–44% vs. the
+  original baseline on both pages).
+- `/bang-tuan-hoan` (no 3D Canvas, unaffected by the steps above): re-measured at
+  71 (previously 66) — this difference is measurement noise between two runs on
+  different machines/times, not a result of code changes (this page doesn't use
+  WebGL).
 
-## Vì sao vẫn dưới ngưỡng 85 của kế hoạch
+## Why it's still below the plan's threshold of 85
 
-Kiểm tra trực tiếp phần tử LCP (`lcp-breakdown-insight`) cho thấy LCP KHÔNG
-phải bản thân Canvas — là một đoạn `<p>` văn bản thường. `elementRenderDelay`
-của nó (~1,7–1,9 s quan sát được, nhân lên nhiều hơn trong ước lượng mô
-phỏng throttling) đến từ việc main thread bận parse/execute ~400 KB mã
-three.js/@react-three/fiber/drei/postprocessing — vì cả hai Canvas đều nằm
-ngay trong khung nhìn ban đầu, `IntersectionObserver` kích hoạt gần như ngay
-lập tức, nên việc hoãn *thời điểm gọi* import không tránh được việc bundle
-đó vẫn phải tải/parse/thực thi rất sớm trong đời trang. Đây là vấn đề
-**trọng lượng bundle**, không phải vấn đề "tải quá sớm" nữa — muốn đóng nốt
-khoảng cách tới 85 cần một đợt riêng rà soát bundle (cây phụ thuộc
-three.js/drei, có phần nào thay được bằng cài đặt nhẹ hơn), không phải một
-thay đổi nhỏ tiếp theo.
+Inspecting the LCP element directly (`lcp-breakdown-insight`) shows the LCP is NOT
+the Canvas itself — it's a plain `<p>` text block. Its `elementRenderDelay`
+(~1.7–1.9 s observed, higher still under simulated throttling estimates) comes from
+the main thread being busy parsing/executing ~400 KB of
+three.js/@react-three/fiber/drei/postprocessing code — because both Canvases sit
+right in the initial viewport, `IntersectionObserver` fires almost immediately, so
+deferring *when* the import is called doesn't avoid the bundle still having to be
+loaded/parsed/executed very early in the page's life. This is now a **bundle weight**
+problem, not a "loading too early" problem anymore — closing the remaining gap to 85
+needs a dedicated bundle-audit pass (the three.js/drei dependency tree, whether parts
+can be swapped for lighter installs), not one more small change.
 
-## Quyết định
+## Decision
 
-`.lighthouserc.json` nâng ngưỡng Performance từ 0,25 lên **0,35** — vẫn dưới
-số đo thấp nhất đã quan sát sau khi sửa (0,42), có biên độ, nhưng đủ chặt để
-bắt lại một hồi quy thật đưa điểm về vùng baseline gốc (~0,30-0,40).
-Accessibility/SEO giữ nguyên ≥ 0,95 vì cả hai đã đạt 100/100 thật.
+`.lighthouserc.json` raises the Performance threshold from 0.25 to **0.35** — still
+below the lowest score observed after the fix (0.42), leaving margin, but tight
+enough to catch a real regression that drags the score back down to the original
+baseline range (~0.30–0.40). Accessibility/SEO stay at ≥ 0.95 since both genuinely
+hit 100/100.
 
-## Việc cần làm nếu tối ưu Performance tiếp
+## Remaining work if optimizing Performance further
 
-1. ~~Hoãn mount `<Canvas>` bằng `IntersectionObserver`~~ — ĐÃ LÀM, cải thiện
-   đo được rõ ràng.
-2. ~~Tách `postprocessing` khỏi chunk chính~~ — ĐÃ LÀM (đúng nguyên tắc: bundle
-   chunk chính nhỏ hơn, hiệu ứng thẩm mỹ không chặn nội dung chính), nhưng
-   CHƯA đo được cải thiện rõ ràng trong môi trường đo hiện tại (biên độ đo
-   lớn hơn tác động).
-3. Rà soát trọng lượng bundle three.js/@react-three/fiber/drei thực sự
-   (phân tích bundle, xem phần nào tree-shake được, có cần toàn bộ `drei`
-   hay chỉ 1-2 helper) — đây là việc còn lại lớn nhất để tiến gần ngưỡng 85.
-4. Đo lại bằng đúng quy trình này (`lighthouse` trực tiếp, production build,
-   KHÔNG `--disable-gpu`, nhiều lần chạy lấy biên độ) sau mỗi thay đổi —
-   không suy đoán tác động từ một lần đo duy nhất.
+1. ~~Defer `<Canvas>` mount with `IntersectionObserver`~~ — DONE, a clear measured
+   improvement.
+2. ~~Split `postprocessing` off from the main chunk~~ — DONE (the right principle: a
+   smaller main chunk, aesthetic effects don't block main content), but has NOT been
+   measured as a clear improvement in the current measuring environment (the
+   measurement range is larger than the effect).
+3. Audit the actual weight of the three.js/@react-three/fiber/drei bundle (bundle
+   analysis, what can be tree-shaken, whether the whole of `drei` is needed or just
+   1–2 helpers) — this is the largest remaining piece of work to get close to the 85
+   threshold.
+4. Re-measure using this exact process (`lighthouse` directly, production build, NO
+   `--disable-gpu`, multiple runs to get a range) after every change — don't infer
+   impact from a single measurement.

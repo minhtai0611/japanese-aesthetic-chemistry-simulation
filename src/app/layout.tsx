@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Be_Vietnam_Pro, Playfair_Display, IBM_Plex_Mono } from "next/font/google";
 import { SITE } from "@/lib/site";
-import DieuHuong from "@/components/dieu-huong";
-import ChanTrang from "@/components/chan-trang";
+import Navigation from "@/components/navigation";
+import Footer from "@/components/footer";
 import "./globals.css";
 
 const beVietnam = Be_Vietnam_Pro({
@@ -31,10 +31,10 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: `${SITE.ten} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo | Dữ liệu mở PubChem`,
-    template: `%s · ${SITE.ten} ${SITE.kanji}`,
+    default: `${SITE.name} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo | Dữ liệu mở PubChem`,
+    template: `%s · ${SITE.name} ${SITE.kanji}`,
   },
-  description: SITE.moTa,
+  description: SITE.description,
   keywords: [
     "phòng thí nghiệm hóa học ảo",
     "mô phỏng thí nghiệm hóa học",
@@ -55,14 +55,14 @@ export const metadata: Metadata = {
     type: "website",
     locale: "vi_VN",
     url: SITE.url,
-    siteName: `${SITE.ten} — ${SITE.khauHieu}`,
-    title: `${SITE.ten} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`,
-    description: SITE.moTa,
+    siteName: `${SITE.name} — ${SITE.tagline}`,
+    title: `${SITE.name} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`,
+    description: SITE.description,
   },
   twitter: {
     card: "summary_large_image",
-    title: `${SITE.ten} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`,
-    description: SITE.moTa,
+    title: `${SITE.name} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`,
+    description: SITE.description,
   },
   category: "Giáo dục khoa học",
 };
@@ -76,7 +76,7 @@ const jsonLd = {
       alternateName: "Kagaku かがく",
       url: SITE.url,
       inLanguage: "vi",
-      description: SITE.moTa,
+      description: SITE.description,
     },
     {
       "@type": "Organization",
@@ -104,9 +104,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <DieuHuong />
+        <Navigation />
         <div id="noi-dung-chinh">{children}</div>
-        <ChanTrang />
+        <Footer />
       </body>
     </html>
   );

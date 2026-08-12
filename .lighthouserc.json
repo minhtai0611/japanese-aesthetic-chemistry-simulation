@@ -3,8 +3,8 @@
     "collect": {
       "url": [
         "http://localhost:3000/",
-        "http://localhost:3000/bang-tuan-hoan",
-        "http://localhost:3000/hop-chat/caffeine"
+        "http://localhost:3000/periodic-table",
+        "http://localhost:3000/compound/caffeine"
       ],
       "startServerCommand": "npm run start",
       "startServerReadyPattern": "Ready in",

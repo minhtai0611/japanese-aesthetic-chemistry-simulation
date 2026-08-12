@@ -1,53 +1,60 @@
-# ADR 0002 — Chuẩn hoá slug hợp chất về ASCII: khử nguyên nhân, không vá điểm rò rỉ
+# ADR 0002 — Normalizing compound slugs to ASCII: eliminate the cause, don't patch the leak
 
-## Bối cảnh
+## Context
 
-14/39 khoá alias tiếng Việt trong `ALIAS_HOP_CHAT` trả về HTTP 500 khi truy cập
-trực tiếp: `/hop-chat/nước`, `/hop-chat/đường`, `/hop-chat/muối`, `/hop-chat/cồn`…
-Trong khi đó `/hop-chat/nuoc` (không dấu) trả 200 bình thường.
+14 of the 39 Vietnamese alias keys in `ALIAS_HOP_CHAT` returned HTTP 500 when
+accessed directly: `/hop-chat/nước`, `/hop-chat/đường`, `/hop-chat/muối`,
+`/hop-chat/cồn`... Meanwhile `/hop-chat/nuoc` (without diacritics) returned a
+normal 200.
 
-Thử nhị phân trên từng ký tự của các chuỗi lỗi cho thấy ranh giới **chính
-xác** tại U+00FF: mọi ký tự ≤ U+00FF (bảng Latin-1) qua được, mọi ký tự
-> U+00FF (nguyên âm có dấu tiếng Việt: `ư`, `ơ`, `ộ`…) đều sập. Đối chiếu
-cùng một chuỗi encode gọi API route (`/api/hop-chat/[ten]`) và OG-image route
-(`/hop-chat/-/opengraph-image`) — cả hai đều trả 200 với ký tự y hệt — chỉ
-riêng Page component ở dynamic segment `/hop-chat/[ten]/page.tsx` mới 500.
+A binary search over the characters of the failing strings showed an
+**exact** boundary at U+00FF: every character ≤ U+00FF (the Latin-1 range)
+passed through fine, every character > U+00FF (Vietnamese diacritic vowels:
+`ư`, `ơ`, `ộ`...) crashed. Comparing the same encoded string called against
+the API route (`/api/hop-chat/[ten]`) and the OG-image route
+(`/hop-chat/-/opengraph-image`) — both returned 200 with the identical
+character — only the Page component at the dynamic segment
+`/hop-chat/[ten]/page.tsx` returned 500.
 
-Bằng chứng này loại trừ giả thuyết ban đầu ("PubChem không nhận ký tự
-Unicode") — vấn đề nằm ở tầng định tuyến Next.js xử lý dynamic segment vượt
-Latin-1, không phải ở lời gọi PubChem.
+This evidence ruled out the initial hypothesis ("PubChem doesn't accept
+Unicode characters") — the problem was in Next.js's routing layer handling a
+dynamic segment beyond Latin-1, not in the PubChem call itself.
 
-## Quyết định
+## Decision
 
-Không đi vá từng route bị ảnh hưởng (API route đã ổn, chỉ Page mới lỗi) — mà
-dựng một **tầng định danh chất** (`src/lib/dinh-danh-chat.ts`) làm nguồn sự
-thật duy nhất cho việc "thứ người dùng gõ" → "định danh chuẩn":
+Rather than patching each affected route individually (the API route was
+already fine, only the Page broke), build a **substance identity layer**
+(`src/lib/substance-identification.ts`) as the single source of truth for
+turning "whatever the user typed" into a "canonical identity":
 
-1. **URL canonical LUÔN là ASCII.** `slugCanonical()` bỏ dấu tiếng Việt
-   (NFD + strip combining marks), giữ nguyên gạch nối và dấu phẩy (có nghĩa
-   trong danh pháp IUPAC, ví dụ `1,3,7-trimethylxanthine`).
-2. Mọi biến thể có dấu/khoảng trắng thừa → `permanentRedirect` 308 về bản
-   canonical, không bao giờ render Page với ký tự vượt Latin-1.
-3. `cacBienTheTraCuu()` thử theo thứ tự: nguyên văn giữ gạch nối trước, alias
-   tiếng Việt sau, và **chỉ cuối cùng** mới thử biến gạch nối thành dấu cách —
-   vì PubChem phân biệt thật `1,3,7-trimethylxanthine` (200) với
-   `1,3,7 trimethylxanthine` (404); đổi mù quáng sẽ tạo lỗi mới trong lúc sửa
-   lỗi cũ.
+1. **The canonical URL is ALWAYS ASCII.** `canonicalSlug()` strips
+   Vietnamese diacritics (NFD + strip combining marks), while preserving
+   hyphens and commas (which carry meaning in IUPAC nomenclature, e.g.
+   `1,3,7-trimethylxanthine`).
+2. Any variant with diacritics or extra whitespace → a 308
+   `permanentRedirect` to the canonical form, so the Page component never
+   renders with a character beyond Latin-1.
+3. `lookupVariants()` tries, in order: the literal string with hyphens kept
+   first, then the Vietnamese alias, and **only last** does it try turning
+   hyphens into spaces — because PubChem genuinely distinguishes
+   `1,3,7-trimethylxanthine` (200) from `1,3,7 trimethylxanthine` (404);
+   blindly substituting would introduce a new bug while fixing the old one.
 
-## Vì sao không tìm chỗ encode
+## Why not just find where to encode it
 
-Sửa từng nơi ký tự Unicode bị chặn (thêm `decodeURIComponent` ở đây, ép kiểu
-route param ở kia…) chỉ che triệu chứng tại đúng những chỗ đã bị phát hiện —
-lần tới có route mới dùng cùng dynamic segment sẽ lại sập theo đúng cách cũ.
-Khử nguyên nhân — không bao giờ để ký tự > U+00FF chạm tới Page component —
-loại bỏ toàn bộ lớp lỗi một lần, không phụ thuộc việc nhớ áp lại bản vá ở mọi
-route tương lai.
+Patching each spot where a Unicode character gets blocked (adding a
+`decodeURIComponent` here, coercing a route param there...) only masks the
+symptom at the exact spots already discovered — the next new route that uses
+the same kind of dynamic segment will break the exact same way all over
+again. Eliminating the cause — never letting a character > U+00FF reach the
+Page component in the first place — removes the entire class of bug at once,
+without depending on remembering to reapply the patch to every future route.
 
-## Hệ quả
+## Consequences
 
-- Whitelist giáo dục (ADR 0003) được xây dựng trên chính `slugCanonical()`
-  này — một hàm, hai lợi ích.
-- Mọi alias mới thêm vào `ALIAS_HOP_CHAT` tự động an toàn — không cần kiểm
-  tra tay từng chuỗi có ký tự gì.
-- Chi phí: một lượt redirect 308 cho mọi URL không-ASCII — chấp nhận được vì
-  đổi lấy loại bỏ hẳn một lớp lỗi 500 sản xuất.
+- The educational whitelist (ADR 0003) is built on top of this same
+  `canonicalSlug()` — one function, two benefits.
+- Every new alias added to `ALIAS_HOP_CHAT` is automatically safe — no need
+  to manually check which characters it contains.
+- Cost: one 308 redirect round-trip for every non-ASCII URL — an acceptable
+  trade for eliminating an entire class of production 500s.

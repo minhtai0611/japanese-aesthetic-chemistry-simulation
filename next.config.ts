@@ -40,6 +40,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Đổi tên route Việt hóa sang tiếng Anh (Phase A) — giữ mọi URL cũ đã lập
+  // chỉ mục/chia sẻ hoạt động vĩnh viễn qua 308, thay vì để 404.
+  async redirects() {
+    return [
+      { source: "/hop-chat", destination: "/compound", permanent: true },
+      { source: "/hop-chat/:ten", destination: "/compound/:ten", permanent: true },
+      { source: "/nguyen-to/:kyhieu", destination: "/element/:kyhieu", permanent: true },
+      { source: "/bang-tuan-hoan", destination: "/periodic-table", permanent: true },
+      { source: "/thi-nghiem", destination: "/experiments", permanent: true },
+      { source: "/thi-nghiem/pha-che", destination: "/experiments/preparation", permanent: true },
+      { source: "/thi-nghiem/chuan-do", destination: "/experiments/titration", permanent: true },
+      { source: "/thi-nghiem/chuyen-pha", destination: "/experiments/phase-change", permanent: true },
+      { source: "/thi-nghiem/can-bang", destination: "/experiments/equilibrium", permanent: true },
+      { source: "/thi-nghiem/pin-dien-hoa", destination: "/experiments/electrochemical-cell", permanent: true },
+      { source: "/quan-tri/tu-khoa-thieu", destination: "/admin/missing-keywords", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
