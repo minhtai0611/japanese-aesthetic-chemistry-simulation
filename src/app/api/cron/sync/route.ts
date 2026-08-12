@@ -1,28 +1,29 @@
 import { NextResponse } from "next/server";
-import { dongBoHopChatGiaoDuc } from "@/lib/dong-bo-hop-chat";
+import { syncEducationalCompound } from "@/lib/compound-sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Cron re-sync định kỳ (xem vercel.json) — làm mới compound_cache theo dữ
- * liệu PubChem mới nhất và tự phục hồi các dòng lỡ chưa xác thực. Chỉ Vercel
- * Cron (hoặc ai biết CRON_SECRET) được gọi — tránh ai đó bên ngoài gọi tràn,
- * tốn cả lượt gọi PubChem lẫn tài nguyên DB. Theo đúng khuyến nghị chính thức
- * của Vercel cho việc bảo vệ Cron Job route.
+ * Periodic cron re-sync (see vercel.json) — refreshes compound_cache with the
+ * latest PubChem data and self-heals rows that failed verification. Only
+ * Vercel Cron (or whoever knows CRON_SECRET) may call this — prevents an
+ * outside caller from flooding it, burning both PubChem call quota and DB
+ * resources. Follows Vercel's official recommendation for protecting a Cron
+ * Job route.
  */
-export async function GET(yeu: Request) {
-  const bimat = process.env.CRON_SECRET;
-  if (!bimat || yeu.headers.get("authorization") !== `Bearer ${bimat}`) {
-    return NextResponse.json({ loi: "unauthorized" }, { status: 401 });
+export async function GET(req: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const ketQua = await dongBoHopChatGiaoDuc();
-  const thanhCong = ketQua.filter((r) => r.ok).length;
+  const results = await syncEducationalCompound();
+  const successCount = results.filter((r) => r.ok).length;
 
   return NextResponse.json({
-    tongSo: ketQua.length,
-    thanhCong,
-    khongXacThucDuoc: ketQua.filter((r) => !r.ok).map((r) => r.ten),
+    total: results.length,
+    successCount,
+    failed: results.filter((r) => !r.ok).map((r) => r.name),
   });
 }
