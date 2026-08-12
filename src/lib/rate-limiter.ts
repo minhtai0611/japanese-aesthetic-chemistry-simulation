@@ -1,43 +1,45 @@
 /**
- * Token-bucket phân tán trên Postgres cho giới hạn gọi PubChem PUG-REST —
- * thay semaphore trong-process cũ (dangChay/HANG_DOI/TRAN, đã xoá khỏi
- * pubchem.ts), vốn không điều phối được giữa các Vercel serverless instance
- * khác nhau — mỗi instance có bộ đếm trong-process riêng, nên tổng tốc độ
- * gọi thực tế có thể vượt xa <=5 req/s dù mỗi instance tự giới hạn 4 lượt
- * đồng thời.
+ * Postgres-backed distributed token bucket for rate-limiting PubChem
+ * PUG-REST calls — replaces the old in-process semaphore (removed from
+ * pubchem.ts), which couldn't coordinate across different Vercel serverless
+ * instances — each instance had its own in-process counter, so the actual
+ * aggregate call rate could far exceed the <=5 req/s limit even though each
+ * instance capped itself at 4 concurrent requests.
  *
- * Nạp lại + tiêu token trong MỘT câu lệnh SQL nguyên tử duy nhất
- * (INSERT ... ON CONFLICT DO UPDATE ... WHERE) — an toàn dưới tải đồng thời
- * nhờ Postgres tự khoá dòng: caller thứ hai chờ caller thứ nhất commit rồi
- * mới đánh giá lại trên dòng đã cập nhật, không có khoảng hở đọc-rồi-ghi.
- * Nếu điều kiện WHERE sai (không đủ token), UPDATE bị bỏ qua và câu lệnh
- * ảnh hưởng 0 dòng — đây là hành vi UPSERT chuẩn, có tài liệu của Postgres,
- * không phải suy đoán.
+ * Refilling + spending a token happens in ONE atomic SQL statement
+ * (INSERT ... ON CONFLICT DO UPDATE ... WHERE) — safe under concurrent load
+ * thanks to Postgres's own row locking: a second caller waits for the first
+ * caller to commit, then re-evaluates against the updated row — there's no
+ * read-then-write gap. If the WHERE condition is false (not enough tokens),
+ * the UPDATE is skipped and the statement affects 0 rows — this is standard,
+ * documented Postgres UPSERT behavior, not a guess.
  *
- * Import `@/db` ĐỘNG (không tĩnh ở đầu file) — cùng lý do pubchem.ts đã dùng
- * `await import("@/db")` cho layConformerTuCache: tránh buộc MỌI nơi import
- * module này (kể cả test thuần không chạm DB) phải có DATABASE_URL sẵn, vì
- * `src/db/index.ts` ném lỗi ngay khi load module nếu thiếu biến đó.
+ * Imports `@/db` DYNAMICALLY (not statically at the top of the file) — same
+ * reason pubchem.ts uses `await import("@/db")` for fetchConformerFromCache:
+ * avoids forcing EVERY importer of this module (including pure tests that
+ * never touch the DB) to have DATABASE_URL set, since `src/db/index.ts`
+ * throws immediately on module load if that variable is missing.
  */
-const KHOA_PUBCHEM = "pubchem_pug_rest";
-const SUC_CHUA = 4; // tokens tối đa (capacity) — cùng biên an toàn TRAN=4 cũ
-const TOC_DO_NAP = 4; // tokens/giây (refill) — dưới ngưỡng <=5 req/s thật của NCBI
-const KHOANG_CHO_MS = 260; // ~1000/TOC_DO_NAP
+const PUBCHEM_LOCK_KEY = "pubchem_pug_rest";
+const CAPACITY = 4; // max tokens (capacity) — same safety margin as the old TRAN=4
+const REFILL_RATE = 4; // tokens/second (refill) — under NCBI's real <=5 req/s limit
+const WAIT_INTERVAL_MS = 260; // ~1000/REFILL_RATE
 /**
- * Hạn chờ theo THỜI GIAN THỰC, không phải số lần thử cố định — `next build`
- * chạy generateStaticParams cho ~150 trang gần như đồng thời (nhiều worker
- * song song), tạo một đợt burst thật sự vượt xa 4 token/giây ngay lúc khởi
- * động. Một hạn cố định vài giây (thử ban đầu) khiến hầu hết các trang build
- * tĩnh bỏ cuộc và in lỗi hàng loạt — bắt được thật qua `npm run build`, không
- * phải giả định. 60 giây đủ để token bucket rưới đủ cho một đợt burst lớn
- * (60s × 4 token/s = 240 token) mà vẫn có một hạn chót, không chờ vô tận nếu
- * DB thật sự có vấn đề.
+ * A REAL-TIME deadline, not a fixed retry count — `next build` runs
+ * generateStaticParams for ~150 pages nearly simultaneously (many parallel
+ * workers), creating a real burst far exceeding 4 tokens/second right at
+ * startup. A fixed few-second deadline (the initial attempt) caused most
+ * static build pages to give up and print errors en masse — caught for real
+ * via `npm run build`, not assumed. 60 seconds is enough for the token
+ * bucket to drip out enough for a large burst (60s × 4 tokens/s = 240
+ * tokens) while still having a cutoff, so it doesn't wait forever if the DB
+ * genuinely has a problem.
  */
-const HAN_CHO_MS = 60_000;
+const WAIT_TIMEOUT_MS = 60_000;
 
-async function thuLayToken(khoa: string, sucChua: number, tocDoNap: number): Promise<boolean> {
+async function acquireToken(key: string, capacity: number, refillRate: number): Promise<boolean> {
   const { pool } = await import("@/db");
-  const ketQua = await pool.query(
+  const result = await pool.query(
     `INSERT INTO api_token_bucket (key, tokens, last_refreshed)
      VALUES ($1, $2 - 1, now())
      ON CONFLICT (key) DO UPDATE SET
@@ -46,22 +48,23 @@ async function thuLayToken(khoa: string, sucChua: number, tocDoNap: number): Pro
        last_refreshed = now()
      WHERE LEAST($2, api_token_bucket.tokens
          + EXTRACT(EPOCH FROM (now() - api_token_bucket.last_refreshed)) * $3) >= 1`,
-    [khoa, sucChua, tocDoNap],
+    [key, capacity, refillRate],
   );
-  return (ketQua.rowCount ?? 0) > 0;
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
- * Xin một lượt gọi PubChem qua token-bucket phân tán. Trả về khi có token;
- * ném lỗi nếu chờ quá `HAN_CHO_MS` — caller (goiPugAnToan trong pubchem.ts)
- * đã có sẵn vòng lặp bắt lỗi/backoff/bỏ cuộc cho mỗi lượt thử mạng, không
- * cần thêm cơ chế xử lý lỗi riêng ở đây.
+ * Requests one PubChem call slot via the distributed token bucket. Returns
+ * once a token is available; throws if it waits longer than
+ * `WAIT_TIMEOUT_MS` — the caller (callPugSafely in pubchem.ts) already has
+ * its own error-catching/backoff/give-up loop for each network attempt, so
+ * no separate error-handling mechanism is needed here.
  */
-export async function xinLuotPubChem(): Promise<void> {
-  const hetHan = Date.now() + HAN_CHO_MS;
-  while (Date.now() < hetHan) {
-    if (await thuLayToken(KHOA_PUBCHEM, SUC_CHUA, TOC_DO_NAP)) return;
-    await new Promise((r) => setTimeout(r, KHOANG_CHO_MS));
+export async function requestPubChemSlot(): Promise<void> {
+  const deadline = Date.now() + WAIT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await acquireToken(PUBCHEM_LOCK_KEY, CAPACITY, REFILL_RATE)) return;
+    await new Promise((r) => setTimeout(r, WAIT_INTERVAL_MS));
   }
-  throw new Error("rate limiter: hết lượt chờ token PubChem");
+  throw new Error("rate limiter: timed out waiting for a PubChem token");
 }

@@ -1,27 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { lopVoTuCauHinh } from "@/lib/electron-config";
+import { electronShellConfig } from "@/lib/electron-config";
 import fixture from "../fixtures/electron-config-118.json";
 
 /**
- * Fixture chụp một lần từ PubChem thật (pug/periodictable/JSON, 1 request duy
- * nhất trả cả 118 nguyên tố — không cần crawl từng nguyên tố) ngày 2026-07-29.
- * Kiểm ngoại tuyến, không phụ thuộc mạng khi chạy test.
+ * A one-time snapshot fixture from real PubChem (pug/periodictable/JSON, a
+ * single request returns all 118 elements — no per-element crawl needed),
+ * captured 2026-07-29. Checked offline, no network dependency when running tests.
  */
-type Dong = { kyHieu: string; z: number; cauHinhElectron: string };
-const DU_LIEU = fixture as Dong[];
+// Raw fixture keys (kyHieu/cauHinhElectron) match the JSON captured verbatim from PubChem — not renamed.
+type Row = { kyHieu: string; z: number; cauHinhElectron: string };
+const DATA = fixture as Row[];
 
-describe("lopVoTuCauHinh — quét toàn bộ 118 nguyên tố (dữ liệu PubChem thật)", () => {
-  it("có đúng 118 nguyên tố trong fixture", () => {
-    expect(DU_LIEU).toHaveLength(118);
+describe("electronShellConfig — scan all 118 elements (real PubChem data)", () => {
+  it("has exactly 118 elements in the fixture", () => {
+    expect(DATA).toHaveLength(118);
   });
 
-  const theoKyHieu = new Map(DU_LIEU.map((d) => [d.kyHieu, d]));
+  const bySymbol = new Map(DATA.map((d) => [d.kyHieu, { electronConfig: d.cauHinhElectron }]));
 
-  it.each(DU_LIEU.map((d) => [d.kyHieu, d.z, d.cauHinhElectron] as const))(
-    "%s (Z=%i): tổng electron lớp vỏ == Z",
-    (_kyHieu, z, cauHinhElectron) => {
-      const lop = lopVoTuCauHinh(cauHinhElectron, theoKyHieu);
-      expect(lop.reduce((a, b) => a + b, 0)).toBe(z);
+  it.each(DATA.map((d) => [d.kyHieu, d.z, d.cauHinhElectron] as const))(
+    "%s (Z=%i): total shell electrons == Z",
+    (_symbol, z, electronConfig) => {
+      const shells = electronShellConfig(electronConfig, bySymbol);
+      expect(shells.reduce((a, b) => a + b, 0)).toBe(z);
     },
   );
 });

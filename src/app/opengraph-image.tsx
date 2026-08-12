@@ -3,7 +3,7 @@ import { SITE } from "@/lib/site";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = `${SITE.ten} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`;
+export const alt = `${SITE.name} ${SITE.kanji} — Phòng thí nghiệm hóa học ảo`;
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -53,9 +53,9 @@ export default function OpengraphImage() {
         </div>
 
         <div style={{ display: "flex", marginTop: 48, gap: 20 }}>
-          {["118 nguyên tố", "Hợp chất 3D", "PubChem PUG-REST"].map((nhan) => (
+          {["118 nguyên tố", "Hợp chất 3D", "PubChem PUG-REST"].map((label) => (
             <div
-              key={nhan}
+              key={label}
               style={{
                 display: "flex",
                 padding: "10px 22px",
@@ -65,7 +65,7 @@ export default function OpengraphImage() {
                 color: "#c9a35a",
               }}
             >
-              {nhan}
+              {label}
             </div>
           ))}
         </div>

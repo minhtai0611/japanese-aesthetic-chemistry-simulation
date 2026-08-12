@@ -3,37 +3,37 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { goiYGanDung } from "@/lib/levenshtein";
-import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
-import { ALIAS_HOP_CHAT } from "@/lib/alias-hop-chat";
-import { TEN_VI } from "@/lib/nguyen-to";
-import { slugHoaHopChat } from "@/lib/slug";
+import { suggestClosestMatch } from "@/lib/levenshtein";
+import { FEATURED_COMPOUNDS } from "@/lib/featured-compounds";
+import { COMPOUND_ALIASES } from "@/lib/compound-alias";
+import { VIETNAMESE_NAMES } from "@/lib/element";
+import { slugifyCompound } from "@/lib/slug";
 
-/** Danh mục tra gợi ý tĩnh — không gọi PubChem, không AI, chỉ so khớp Levenshtein cổ điển */
-const UNG_VIEN_HOP_CHAT = [
-  ...new Set([...HOP_CHAT_NOI_BAT.map((c) => c.ten), ...Object.keys(ALIAS_HOP_CHAT)]),
+/** Static suggestion catalog — no PubChem call, no AI, just classic Levenshtein matching */
+const COMPOUND_CANDIDATES = [
+  ...new Set([...FEATURED_COMPOUNDS.map((c) => c.name), ...Object.keys(COMPOUND_ALIASES)]),
 ];
-const UNG_VIEN_NGUYEN_TO = Object.values(TEN_VI);
+const ELEMENT_CANDIDATES = Object.values(VIETNAMESE_NAMES);
 
-export default function KhongTimThay() {
+export default function NotFound() {
   const pathname = usePathname();
 
-  const goiY = useMemo(() => {
-    const doan = pathname.split("/").filter(Boolean);
-    if (doan.length < 2) return [];
+  const suggestions = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments.length < 2) return [];
 
-    const tuKhoa = decodeURIComponent(doan[doan.length - 1]).replace(/-/g, " ");
+    const keyword = decodeURIComponent(segments[segments.length - 1]).replace(/-/g, " ");
 
-    if (doan[0] === "hop-chat") {
-      return goiYGanDung(tuKhoa, UNG_VIEN_HOP_CHAT).map((ten) => ({
-        nhan: ten,
-        href: `/hop-chat/${slugHoaHopChat(ten)}`,
+    if (segments[0] === "compound") {
+      return suggestClosestMatch(keyword, COMPOUND_CANDIDATES).map((name) => ({
+        label: name,
+        href: `/compound/${slugifyCompound(name)}`,
       }));
     }
-    if (doan[0] === "nguyen-to") {
-      return goiYGanDung(tuKhoa, UNG_VIEN_NGUYEN_TO).map((ten) => ({
-        nhan: ten,
-        href: `/bang-tuan-hoan?q=${encodeURIComponent(ten)}`,
+    if (segments[0] === "element") {
+      return suggestClosestMatch(keyword, ELEMENT_CANDIDATES).map((name) => ({
+        label: name,
+        href: `/periodic-table?q=${encodeURIComponent(name)}`,
       }));
     }
     return [];
@@ -49,17 +49,17 @@ export default function KhongTimThay() {
         Đường dẫn không tồn tại, hoặc chất bạn tìm chưa có trong CSDL PubChem.
       </p>
 
-      {goiY.length > 0 && (
+      {suggestions.length > 0 && (
         <div className="the-khac mt-8 rounded-2xl p-6 text-left">
           <p className="chi-muc mb-3 text-shu-sang">Có phải bạn muốn tìm</p>
           <div className="flex flex-wrap gap-2">
-            {goiY.map((g) => (
+            {suggestions.map((s) => (
               <Link
-                key={g.href}
-                href={g.href}
+                key={s.href}
+                href={s.href}
                 className="rounded-full border border-washi/12 px-4 py-2 text-xs capitalize text-washi-mo transition-colors hover:border-shu-sang hover:text-shu-sang"
               >
-                {g.nhan}
+                {s.label}
               </Link>
             ))}
           </div>

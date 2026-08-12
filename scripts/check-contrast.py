@@ -2,7 +2,7 @@
 """
 Kiểm tra độ tương phản WCAG 2.2 cho các cặp màu chữ/nền thật sự xuất hiện
 trên trang — đọc trực tiếp từ src/app/globals.css (@theme) và
-src/lib/nguyen-to.ts (MAU_KHOI), không chép tay giá trị hex để tránh
+src/lib/element.ts (MAU_KHOI), không chép tay giá trị hex để tránh
 script và code lệch nhau theo thời gian.
 
 Ngưỡng WCAG AA: văn bản thường >= 4.5:1, văn bản lớn (>=18pt hoặc
@@ -15,7 +15,7 @@ from pathlib import Path
 
 GOC = Path(__file__).resolve().parent.parent
 GLOBALS_CSS = GOC / "src" / "app" / "globals.css"
-NGUYEN_TO_TS = GOC / "src" / "lib" / "nguyen-to.ts"
+NGUYEN_TO_TS = GOC / "src" / "lib" / "element.ts"
 
 
 def hex_sang_rgb(ma: str) -> tuple[int, int, int]:

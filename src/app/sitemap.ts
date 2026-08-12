@@ -1,35 +1,35 @@
 import type { MetadataRoute } from "next";
-import { layTatCaNguyenTo } from "@/lib/pubchem";
+import { fetchAllElements } from "@/lib/pubchem";
 import { SITE } from "@/lib/site";
-import { HOP_CHAT_NOI_BAT } from "@/lib/hop-chat-noi-bat";
-import { slugHoaHopChat } from "@/lib/slug";
-import { CAC_PHONG } from "@/lib/phong-thi-nghiem";
+import { FEATURED_COMPOUNDS } from "@/lib/featured-compounds";
+import { slugifyCompound } from "@/lib/slug";
+import { LABS } from "@/lib/laboratory";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const duongCoDinh: MetadataRoute.Sitemap = [
+  const staticRoutes: MetadataRoute.Sitemap = [
     { url: SITE.url, changeFrequency: "weekly", priority: 1 },
-    { url: `${SITE.url}/bang-tuan-hoan`, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${SITE.url}/thi-nghiem`, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${SITE.url}/hop-chat`, changeFrequency: "monthly", priority: 0.8 },
-    ...CAC_PHONG.map((p) => ({
-      url: `${SITE.url}/thi-nghiem/${p.slug}`,
+    { url: `${SITE.url}/periodic-table`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE.url}/experiments`, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${SITE.url}/compound`, changeFrequency: "monthly", priority: 0.8 },
+    ...LABS.map((p) => ({
+      url: `${SITE.url}/experiments/${p.slug}`,
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
   ];
 
-  const nguyenTo = await layTatCaNguyenTo();
-  const duongNguyenTo: MetadataRoute.Sitemap = nguyenTo.map((n) => ({
-    url: `${SITE.url}/nguyen-to/${n.kyHieu.toLowerCase()}`,
+  const elements = await fetchAllElements();
+  const elementRoutes: MetadataRoute.Sitemap = elements.map((n) => ({
+    url: `${SITE.url}/element/${n.symbol.toLowerCase()}`,
     changeFrequency: "monthly",
     priority: 0.6,
   }));
 
-  const duongHopChat: MetadataRoute.Sitemap = HOP_CHAT_NOI_BAT.map((c) => ({
-    url: `${SITE.url}/hop-chat/${slugHoaHopChat(c.ten)}`,
+  const compoundRoutes: MetadataRoute.Sitemap = FEATURED_COMPOUNDS.map((c) => ({
+    url: `${SITE.url}/compound/${slugifyCompound(c.name)}`,
     changeFrequency: "monthly",
     priority: 0.65,
   }));
 
-  return [...duongCoDinh, ...duongNguyenTo, ...duongHopChat];
+  return [...staticRoutes, ...elementRoutes, ...compoundRoutes];
 }
