@@ -1,15 +1,16 @@
-import { slugCanonical, cacBienTheTraCuu } from "./dinh-danh-chat";
+import { canonicalSlug, lookupVariants } from "./substance-identification";
 
-/** Slug hóa tên hợp chất cho route /hop-chat/[ten] — permalink chia sẻ được, LUÔN ASCII-safe */
-export function slugHoaHopChat(ten: string): string {
-  return slugCanonical(ten);
+/** Slugifies a compound name for the /compound/[name] route — a shareable permalink, ALWAYS ASCII-safe */
+export function slugifyCompound(name: string): string {
+  return canonicalSlug(name);
 }
 
 /**
- * Giải slug thành MỘT từ khoá tra cứu đáng thử nhất (biến thể nguyên văn).
- * Nơi cần thử hết mọi biến thể (alias tiếng Việt, dấu cách…) — như trang
- * hợp chất chính và ảnh OG — dùng thẳng `cacBienTheTraCuu` + `layHopChatTheoBienThe`.
+ * Resolves a slug to ONE most-worth-trying lookup keyword (the literal variant).
+ * Where every variant needs to be tried (Vietnamese aliases, spacing…) —
+ * such as the main compound page and the OG image — use `lookupVariants` +
+ * `fetchCompoundByVariant` directly instead.
  */
-export function boSlugHopChat(slug: string): string {
-  return cacBienTheTraCuu(slug)[0];
+export function stripCompoundSlug(slug: string): string {
+  return lookupVariants(slug)[0];
 }

@@ -1,19 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// pool.query chạm Postgres thật — mock để test logic retry/backoff/bỏ cuộc
-// của xinLuotPubChem() mà không cần DB thật, cùng quy ước với cách
-// nhiet-dong.test.ts mock layHopChat (chỉ mock ở biên mạng/DB, không unit
-// test chạm tài nguyên thật trong bộ Vitest xanh/xác định).
+// pool.query touches real Postgres — mocked to test the retry/backoff/give-up
+// logic of requestPubChemSlot() without a real DB, following the same
+// convention as thermodynamics.test.ts mocking fetchCompound (only mock at
+// the network/DB boundary — no unit test in the Vitest suite touches a real
+// resource, keeping the suite green/deterministic).
 vi.mock("@/db", () => ({
   pool: { query: vi.fn() },
 }));
 
 import { pool } from "@/db";
-import { xinLuotPubChem } from "@/lib/rate-limiter";
+import { requestPubChemSlot } from "@/lib/rate-limiter";
 
 const queryMock = pool.query as unknown as ReturnType<typeof vi.fn>;
 
-describe("xinLuotPubChem", () => {
+describe("requestPubChemSlot", () => {
   beforeEach(() => {
     queryMock.mockReset();
     vi.useFakeTimers();
@@ -22,45 +23,45 @@ describe("xinLuotPubChem", () => {
     vi.useRealTimers();
   });
 
-  it("có token ngay lần thử đầu → trả về ngay, chỉ 1 lần gọi query", async () => {
+  it("has a token on the first try → returns immediately, only 1 query call", async () => {
     queryMock.mockResolvedValueOnce({ rowCount: 1 });
-    await expect(xinLuotPubChem()).resolves.toBeUndefined();
+    await expect(requestPubChemSlot()).resolves.toBeUndefined();
     expect(queryMock).toHaveBeenCalledTimes(1);
   });
 
-  it("hết token vài lần đầu rồi có → chờ rồi thử lại cho đến khi thành công", async () => {
+  it("out of tokens for the first few tries, then has one → waits and retries until it succeeds", async () => {
     queryMock
       .mockResolvedValueOnce({ rowCount: 0 })
       .mockResolvedValueOnce({ rowCount: 0 })
       .mockResolvedValueOnce({ rowCount: 1 });
 
-    const promise = xinLuotPubChem();
+    const promise = requestPubChemSlot();
     await vi.advanceTimersByTimeAsync(3000);
     await expect(promise).resolves.toBeUndefined();
     expect(queryMock).toHaveBeenCalledTimes(3);
   });
 
-  it("luôn hết token → chờ đủ HAN_CHO_MS (60s) rồi mới ném lỗi, không bỏ cuộc sớm", async () => {
+  it("always out of tokens → waits the full WAIT_TIMEOUT_MS (60s) before throwing, doesn't give up early", async () => {
     queryMock.mockResolvedValue({ rowCount: 0 });
 
-    const promise = xinLuotPubChem();
-    // Gắn catch ngay để tránh unhandled-rejection cảnh báo trước khi assert bên dưới chạy.
+    const promise = requestPubChemSlot();
+    // Attach a catch right away to avoid an unhandled-rejection warning before the assertions below run.
     promise.catch(() => {});
 
-    // Chưa hết hạn (30s) — vẫn đang chờ, chưa reject.
+    // Not yet expired (30s) — still waiting, not rejected yet.
     await vi.advanceTimersByTimeAsync(30_000);
-    let daXongChua = false;
+    let settled = false;
     promise.then(
-      () => (daXongChua = true),
-      () => (daXongChua = true),
+      () => (settled = true),
+      () => (settled = true),
     );
     await Promise.resolve();
-    expect(daXongChua).toBe(false);
-    // Vẫn đã thử lại nhiều lần trong 30s đầu (không phải bỏ cuộc chỉ sau vài lần).
+    expect(settled).toBe(false);
+    // Already retried many times within the first 30s (not giving up after just a few).
     expect(queryMock.mock.calls.length).toBeGreaterThan(50);
 
-    // Qua khỏi hạn 60s — giờ mới ném lỗi.
+    // Past the 60s deadline — now it throws.
     await vi.advanceTimersByTimeAsync(31_000);
-    await expect(promise).rejects.toThrow("rate limiter: hết lượt chờ token PubChem");
+    await expect(promise).rejects.toThrow("rate limiter: timed out waiting for a PubChem token");
   });
 });

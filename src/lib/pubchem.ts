@@ -1,229 +1,230 @@
 /**
- * LỚP DỮ LIỆU THẬT — PUBCHEM PUG-REST (NCBI, công cộng, không cần khóa API).
+ * REAL DATA LAYER — PUBCHEM PUG-REST (NCBI, public, no API key required).
  *
- * TUYÊN BỐ MINH BẠCH: website này KHÔNG chế tác số liệu hóa học.
- *  - Bảng tuần hoàn 118 nguyên tố : /rest/pug/periodictable/JSON
- *  - Thuộc tính hợp chất          : /rest/pug/compound/.../property/...
- *  - Tọa độ không gian 3 chiều     : /rest/pug/compound/.../JSON?record_type=3d
- *  - Gợi ý tên                     : /rest/autocomplete/compound/{từ}/JSON
- * Các phép mô phỏng (pH, pha loãng, pha vật chất…) là toán vật lý/hóa học
- * tính TRÊN nền số liệu API này (Kw, n = m/M, C₁V₁ = C₂V₂, nhiệt độ chuyển pha).
+ * TRANSPARENCY STATEMENT: this website does NOT fabricate chemistry data.
+ *  - Periodic table of 118 elements : /rest/pug/periodictable/JSON
+ *  - Compound properties            : /rest/pug/compound/.../property/...
+ *  - 3D spatial coordinates         : /rest/pug/compound/.../JSON?record_type=3d
+ *  - Name suggestions               : /rest/autocomplete/compound/{term}/JSON
+ * The simulations (pH, dilution, phase change...) are physics/chemistry math
+ * computed ON TOP of this API data (Kw, n = m/M, C₁V₁ = C₂V₂, phase-change temperature).
  */
 
-import { BO_TRI, TEN_VI, DICH_GIA_DINH } from "./nguyen-to";
-import { lopVoTuCauHinh } from "./electron-config";
-import { dichTenHopChat, goiYTenTiengViet } from "./alias-hop-chat";
+import { LAYOUT_MAP, VIETNAMESE_NAMES, DEFAULT_TRANSLATIONS } from "./element";
+import { electronShellConfig } from "./electron-config";
+import { translateCompoundName, suggestVietnameseName } from "./compound-alias";
 import { sql } from "drizzle-orm";
-import { TY_LE_TOA_DO_3D } from "./ty-le-toa-do-3d";
-import { xinLuotPubChem } from "./rate-limiter";
+import { COORD_SCALE_3D } from "./coordinate-scale-3d";
+import { requestPubChemSlot } from "./rate-limiter";
 
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest";
-const TUAN = 60 * 60 * 24 * 7; // cache 7 ngày
+const WEEK = 60 * 60 * 24 * 7; // 7-day cache
 
-/** Ba trạng thái khác nhau, KHÔNG được gộp làm một */
-export type KetQuaPug<T> =
-  | { loai: "co"; duLieu: T }
-  | { loai: "khong-co" } // PubChem khẳng định không tồn tại
-  | { loai: "loi"; thongDiep: string }; // không hỏi được PubChem
+/** Three distinct states, which must NOT be collapsed into one */
+export type PugResult<T> =
+  | { status: "co"; data: T }
+  | { status: "khong-co" } // PubChem confirms it doesn't exist
+  | { status: "loi"; message: string }; // couldn't reach PubChem
 
 /**
- * Gọi PubChem PUG-REST, phân biệt rõ 3 trạng thái: có dữ liệu, PubChem khẳng
- * định không có (404 hoặc {Fault}), hoặc không hỏi được (mạng lỗi, timeout,
- * 5xx/429 phía họ). Bản `goiPug` cũ gộp cả ba thành `null` — đó là nguyên
- * nhân gốc khiến một cú rate-limit lúc build từng bị hiểu nhầm thành "chất
- * không tồn tại" và 404 nướng cứng vào bản tĩnh.
+ * Calls PubChem PUG-REST, clearly distinguishing 3 states: data found,
+ * PubChem confirms it doesn't exist (404 or {Fault}), or couldn't be reached
+ * (network error, timeout, 5xx/429 on their end). The old `callPug` collapsed
+ * all three into `null` — that was the root cause of a build-time rate-limit
+ * once being mistaken for "substance doesn't exist" and a 404 getting baked
+ * hard into the static build.
  */
-export async function goiPugAnToan<T>(duong: string, revalidate = TUAN): Promise<KetQuaPug<T>> {
-  for (let lan = 0; lan <= 2; lan++) {
+export async function callPugSafely<T>(path: string, revalidate = WEEK): Promise<PugResult<T>> {
+  for (let attempt = 0; attempt <= 2; attempt++) {
     try {
-      await xinLuotPubChem();
-      const res = await fetch(`${PUG}${duong}`, {
+      await requestPubChemSlot();
+      const res = await fetch(`${PUG}${path}`, {
         next: { revalidate },
         headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(8000),
       });
 
-      // 404 từ PubChem = khẳng định không tồn tại
-      if (res.status === 404) return { loai: "khong-co" };
-      // 5xx / 429 = lỗi phía họ ⇒ retry
+      // 404 from PubChem = confirmed not to exist
+      if (res.status === 404) return { status: "khong-co" };
+      // 5xx / 429 = error on their end ⇒ retry
       if (res.status >= 500 || res.status === 429) throw new Error(`upstream ${res.status}`);
-      if (!res.ok) return { loai: "loi", thongDiep: `HTTP ${res.status}` };
+      if (!res.ok) return { status: "loi", message: `HTTP ${res.status}` };
 
       const json = (await res.json()) as { Fault?: unknown } & T;
-      // PubChem trả HTTP 200 kèm {Fault} cho truy vấn sai — GIỮ guard này
-      if (json && typeof json === "object" && "Fault" in json) return { loai: "khong-co" };
-      return { loai: "co", duLieu: json as T };
+      // PubChem returns HTTP 200 with a {Fault} body for malformed queries — KEEP this guard
+      if (json && typeof json === "object" && "Fault" in json) return { status: "khong-co" };
+      return { status: "co", data: json as T };
     } catch (e) {
-      if (lan === 2) {
-        return { loai: "loi", thongDiep: e instanceof Error ? e.message : String(e) };
+      if (attempt === 2) {
+        return { status: "loi", message: e instanceof Error ? e.message : String(e) };
       }
-      await new Promise((s) => setTimeout(s, 300 * 2 ** lan)); // backoff mũ
+      await new Promise((s) => setTimeout(s, 300 * 2 ** attempt)); // exponential backoff
     }
   }
-  return { loai: "loi", thongDiep: "hết lượt thử" };
+  return { status: "loi", message: "out of retries" };
 }
 
-/** Giữ chữ ký cũ cho code chưa migrate sang goiPugAnToan — nhưng LOG rõ khi nuốt lỗi */
-async function goiPug<T>(duong: string, revalidate = TUAN): Promise<T | null> {
-  const kq = await goiPugAnToan<T>(duong, revalidate);
-  if (kq.loai === "co") return kq.duLieu;
-  if (kq.loai === "loi") console.error(`[pubchem] ${duong}: ${kq.thongDiep}`);
+/** Keeps the old signature for code not yet migrated to callPugSafely — but LOGS clearly when swallowing an error */
+async function callPug<T>(path: string, revalidate = WEEK): Promise<T | null> {
+  const result = await callPugSafely<T>(path, revalidate);
+  if (result.status === "co") return result.data;
+  if (result.status === "loi") console.error(`[pubchem] ${path}: ${result.message}`);
   return null;
 }
 
-/* ---------------------------------- NGUYÊN TỐ ---------------------------------- */
+/* ---------------------------------- ELEMENTS ---------------------------------- */
 
-export interface NguyenTo {
-  so: number;
-  kyHieu: string;
-  tenEn: string;
-  tenVi: string;
-  khoiLuong: number | null;        // u
-  mauCPK: string;                  // "#RRGGBB"
-  cauHinhElectron: string;
-  doAmDien: number | null;         // Pauling
-  banKinhPm: number | null;        // pm
-  nangLuongIonHoa: number | null;  // eV
-  aiLucElectron: number | null;    // eV
-  cacMucOxiHoa: string;
-  trangThaiGoc: string;            // dữ liệu nguyên gốc từ API
-  trangThai: "ran" | "long" | "khi" | "chua-xac-dinh";
+export interface ElementInfo {
+  atomicNumber: number;
+  symbol: string;
+  englishName: string;
+  vietnameseName: string;
+  atomicMass: number | null;        // u
+  cpkColor: string;                  // "#RRGGBB"
+  electronConfig: string;
+  electronegativity: number | null;         // Pauling
+  radiusPm: number | null;        // pm
+  ionizationEnergy: number | null;  // eV
+  electronAffinity: number | null;    // eV
+  oxidationStates: string;
+  rawState: string;            // raw data from the API
+  stateOfMatter: "ran" | "long" | "khi" | "chua-xac-dinh";
   /**
-   * Độ chắc chắn của trạng thái chuẩn: PubChem tự đánh dấu các nguyên tố siêu nặng
-   * tổng hợp, số lượng nguyên tử quá ít để đo trạng thái khối, bằng cụm "Expected to
-   * be a ...". Field này giữ nguyên tín hiệu đó thay vì để UI hiển thị như một fact
-   * đo đạc chắc chắn.
+   * Certainty of the standard state: PubChem itself flags synthetic superheavy
+   * elements — where too few atoms have ever existed to measure a bulk state —
+   * with the phrase "Expected to be a ...". This field preserves that signal
+   * instead of letting the UI display it as a confidently measured fact.
    */
-  trangThaiCertainty: "do-dac" | "du-doan" | "chua-xac-dinh";
+  stateCertainty: "do-dac" | "du-doan" | "chua-xac-dinh";
   /**
-   * Cấu hình electron của các nguyên tố cùng nhóm "chưa đo trạng thái khối" ở trên
-   * cũng chưa từng được xác định bằng thực nghiệm quang phổ — chỉ có giá trị tính
-   * toán lý thuyết. Suy ra từ CÙNG tín hiệu nguồn (trangThaiGoc), không phải số liệu
-   * tự bịa.
+   * The electron configuration of elements in the same "state not measured"
+   * group above has also never been determined by spectroscopic experiment —
+   * only theoretical calculation exists. Derived from the SAME source signal
+   * (rawState), not made up.
    */
-  cauHinhElectronCertainty: "do-dac" | "du-doan" | "chua-xac-dinh";
-  nongChayK: number | null;        // K
-  soiK: number | null;             // K
-  matDo: number | null;            // g/cm³
-  giaDinhEn: string;
-  giaDinhVi: string;
-  namPhatHien: string;
-  nhom: number;
-  chuKi: number | null;
-  chuKiHienThi: number;
-  khoi: "s" | "p" | "d" | "f";
-  lopVo: number[];                 // số e ở mỗi lớp n=1..7 (từ cấu hình API)
+  electronConfigCertainty: "do-dac" | "du-doan" | "chua-xac-dinh";
+  meltingPointK: number | null;        // K
+  boilingPointK: number | null;             // K
+  density: number | null;            // g/cm³
+  groupFamilyEn: string;
+  groupFamilyVi: string;
+  yearDiscovered: string;
+  group: number;
+  period: number | null;
+  displayPeriod: number;
+  block: "s" | "p" | "d" | "f";
+  electronShells: number[];                 // e- count per shell n=1..7 (from the API's electron config)
 }
 
-interface BangPeriodic {
+interface PeriodicTableResponse {
   Table: {
     Columns: { Column: string[] };
     Row: { Cell: string[] }[];
   };
 }
 
-function soHoacNull(v: string): number | null {
+function numberOrNull(v: string): number | null {
   if (!v) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-function trangThaiCua(goc: string): NguyenTo["trangThai"] {
-  const g = goc.toLowerCase();
+function stateOf(rawState: string): ElementInfo["stateOfMatter"] {
+  const g = rawState.toLowerCase();
   if (g.includes("solid")) return "ran";
   if (g.includes("liquid")) return "long";
   if (g.includes("gas")) return "khi";
   return "chua-xac-dinh";
 }
 
-/** PubChem đánh dấu suy đoán bằng cụm "Expected to be a ..." thay vì đo trực tiếp */
-function doTinCayTuTrangThaiGoc(goc: string): NguyenTo["trangThaiCertainty"] {
-  if (!goc) return "chua-xac-dinh";
-  return /expected/i.test(goc) ? "du-doan" : "do-dac";
+/** PubChem flags a guess with the phrase "Expected to be a ..." instead of a direct measurement */
+function confidenceFromOriginalState(rawState: string): ElementInfo["stateCertainty"] {
+  if (!rawState) return "chua-xac-dinh";
+  return /expected/i.test(rawState) ? "du-doan" : "do-dac";
 }
 
 /**
- * Chuẩn hoá mã màu CPK từ PubChem.
+ * Normalizes a CPK color code from PubChem.
  *
- * PubChem cắt số 0 đứng đầu: Paladi có màu Jmol chuẩn #006985 nhưng API trả "6985".
- * padStart(6, "F") biến nó thành "#FF6985" (hồng) — một mã màu không tồn tại trong
- * bất kỳ chuẩn CPK/Jmol nào. Phải đệm bằng "0".
+ * PubChem strips leading zeros: Palladium's standard Jmol color is #006985 but
+ * the API returns "6985". padStart(6, "F") would turn it into "#FF6985" (pink) —
+ * a color code that doesn't exist in any CPK/Jmol standard. Must pad with "0".
  */
-export function mauCPKTu(raw: string | undefined): { hex: string; nguon: "pubchem" | "mac-dinh" } {
+export function cpkColorFrom(raw: string | undefined): { hex: string; source: "pubchem" | "mac-dinh" } {
   const v = (raw ?? "").trim();
-  if (!/^[0-9A-Fa-f]{1,6}$/.test(v)) return { hex: "#C8C4BC", nguon: "mac-dinh" };
-  return { hex: `#${v.toUpperCase().padStart(6, "0")}`, nguon: "pubchem" };
+  if (!/^[0-9A-Fa-f]{1,6}$/.test(v)) return { hex: "#C8C4BC", source: "mac-dinh" };
+  return { hex: `#${v.toUpperCase().padStart(6, "0")}`, source: "pubchem" };
 }
 
-let demNguyenTo = 0;
+let elementCount = 0;
 
-export async function layTatCaNguyenTo(): Promise<NguyenTo[]> {
-  const data = await goiPug<BangPeriodic>("/pug/periodictable/JSON");
+export async function fetchAllElements(): Promise<ElementInfo[]> {
+  const data = await callPug<PeriodicTableResponse>("/pug/periodictable/JSON");
   if (!data?.Table?.Row?.length) return [];
 
-  const cot = data.Table.Columns.Column;
-  const viTri = (ten: string) => cot.indexOf(ten);
+  const columns = data.Table.Columns.Column;
+  const columnIndex = (name: string) => columns.indexOf(name);
 
-  const tho = data.Table.Row.map((hang) => {
-    const c = hang.Cell;
-    const so = Number(c[viTri("AtomicNumber")]);
-    const boTri = BO_TRI.get(so) ?? { nhom: 0, chuKiHienThi: 0, chuKi: null, khoi: "s" as const };
-    const giaDinh = c[viTri("GroupBlock")] ?? "";
+  const elements = data.Table.Row.map((row) => {
+    const c = row.Cell;
+    const atomicNumber = Number(c[columnIndex("AtomicNumber")]);
+    const layout = LAYOUT_MAP.get(atomicNumber) ?? { group: 0, displayPeriod: 0, period: null, block: "s" as const };
+    const groupFamily = c[columnIndex("GroupBlock")] ?? "";
     return {
-      so,
-      kyHieu: c[viTri("Symbol")] ?? "",
-      tenEn: c[viTri("Name")] ?? "",
-      tenVi: TEN_VI[so] ?? c[viTri("Name")] ?? "",
-      khoiLuong: soHoacNull(c[viTri("AtomicMass")]),
-      mauCPK: mauCPKTu(c[viTri("CPKHexColor")]).hex,
-      cauHinhElectron: c[viTri("ElectronConfiguration")] ?? "",
-      doAmDien: soHoacNull(c[viTri("Electronegativity")]),
-      banKinhPm: soHoacNull(c[viTri("AtomicRadius")]),
-      nangLuongIonHoa: soHoacNull(c[viTri("IonizationEnergy")]),
-      aiLucElectron: soHoacNull(c[viTri("ElectronAffinity")]),
-      cacMucOxiHoa: c[viTri("OxidationStates")] || "—",
-      trangThaiGoc: c[viTri("StandardState")] ?? "",
-      trangThai: trangThaiCua(c[viTri("StandardState")] ?? ""),
-      trangThaiCertainty: doTinCayTuTrangThaiGoc(c[viTri("StandardState")] ?? ""),
-      cauHinhElectronCertainty: doTinCayTuTrangThaiGoc(c[viTri("StandardState")] ?? ""),
-      nongChayK: soHoacNull(c[viTri("MeltingPoint")]),
-      soiK: soHoacNull(c[viTri("BoilingPoint")]),
-      matDo: soHoacNull(c[viTri("Density")]),
-      giaDinhEn: giaDinh,
-      giaDinhVi: DICH_GIA_DINH[giaDinh] ?? giaDinh,
-      namPhatHien: c[viTri("YearDiscovered")] || "—",
-      nhom: boTri.nhom,
-      chuKi: boTri.chuKi,
-      chuKiHienThi: boTri.chuKiHienThi,
-      khoi: boTri.khoi,
-      lopVo: [] as number[],
+      atomicNumber,
+      symbol: c[columnIndex("Symbol")] ?? "",
+      englishName: c[columnIndex("Name")] ?? "",
+      vietnameseName: VIETNAMESE_NAMES[atomicNumber] ?? c[columnIndex("Name")] ?? "",
+      atomicMass: numberOrNull(c[columnIndex("AtomicMass")]),
+      cpkColor: cpkColorFrom(c[columnIndex("CPKHexColor")]).hex,
+      electronConfig: c[columnIndex("ElectronConfiguration")] ?? "",
+      electronegativity: numberOrNull(c[columnIndex("Electronegativity")]),
+      radiusPm: numberOrNull(c[columnIndex("AtomicRadius")]),
+      ionizationEnergy: numberOrNull(c[columnIndex("IonizationEnergy")]),
+      electronAffinity: numberOrNull(c[columnIndex("ElectronAffinity")]),
+      oxidationStates: c[columnIndex("OxidationStates")] || "—",
+      rawState: c[columnIndex("StandardState")] ?? "",
+      stateOfMatter: stateOf(c[columnIndex("StandardState")] ?? ""),
+      stateCertainty: confidenceFromOriginalState(c[columnIndex("StandardState")] ?? ""),
+      electronConfigCertainty: confidenceFromOriginalState(c[columnIndex("StandardState")] ?? ""),
+      meltingPointK: numberOrNull(c[columnIndex("MeltingPoint")]),
+      boilingPointK: numberOrNull(c[columnIndex("BoilingPoint")]),
+      density: numberOrNull(c[columnIndex("Density")]),
+      groupFamilyEn: groupFamily,
+      groupFamilyVi: DEFAULT_TRANSLATIONS[groupFamily] ?? groupFamily,
+      yearDiscovered: c[columnIndex("YearDiscovered")] || "—",
+      group: layout.group,
+      period: layout.period,
+      displayPeriod: layout.displayPeriod,
+      block: layout.block,
+      electronShells: [] as number[],
     };
   });
 
-  const theoKyHieu = new Map(tho.map((n) => [n.kyHieu, n]));
-  tho.forEach((n) => (n.lopVo = lopVoTuCauHinh(n.cauHinhElectron, theoKyHieu)));
-  demNguyenTo = tho.length;
-  return tho;
+  const theoKyHieu = new Map(elements.map((n) => [n.symbol, { electronConfig: n.electronConfig }]));
+  elements.forEach((n) => (n.electronShells = electronShellConfig(n.electronConfig, theoKyHieu)));
+  elementCount = elements.length;
+  return elements;
 }
 
-export function soLuongNguyenToDaTai() {
-  return demNguyenTo;
+export function loadedElementCount() {
+  return elementCount;
 }
 
-export async function layNguyenTheoKyHieu(kyHieu: string): Promise<NguyenTo | null> {
-  const tatCa = await layTatCaNguyenTo();
-  const k = kyHieu.toLowerCase();
-  return tatCa.find((n) => n.kyHieu.toLowerCase() === k) ?? null;
+export async function getElementBySymbol(symbol: string): Promise<ElementInfo | null> {
+  const allElements = await fetchAllElements();
+  const k = symbol.toLowerCase();
+  return allElements.find((n) => n.symbol.toLowerCase() === k) ?? null;
 }
 
-/* ---------------------------------- HỢP CHẤT ----------------------------------- */
+/* ---------------------------------- COMPOUNDS ----------------------------------- */
 
-export interface HopChat {
+export interface Compound {
   cid: number;
-  tenTruyVan: string;
-  congThuc: string | null;
-  khoiLuongMol: number | null; // g/mol
-  khoiLuongExact: number | null;
+  queryName: string;
+  formula: string | null;
+  molarMass: number | null; // g/mol
+  exactMass: number | null;
   iupac: string | null;
   smiles: string | null;
   inchikey: string | null;
@@ -231,11 +232,11 @@ export interface HopChat {
   tpsa: number | null;
   hbd: number | null;
   hba: number | null;
-  lienKetXoay: number | null;
-  doPhucTap: number | null;
+  rotatableBonds: number | null;
+  complexity: number | null;
 }
 
-interface BangThuocTinh {
+interface PropertyTableResponse {
   PropertyTable: {
     Properties: {
       CID: number;
@@ -257,44 +258,44 @@ interface BangThuocTinh {
 }
 
 /**
- * Xác định đoạn đường dẫn PUG-REST cho một từ khóa tra cứu:
- *  - toàn số  → coi là CID thật (/compound/cid/{cid})
- *  - còn lại  → dịch alias tiếng Việt phổ biến (nếu có) rồi tra theo tên (/compound/name/{ten})
+ * Determines the PUG-REST path segment for a lookup keyword:
+ *  - all digits → treat as a real CID (/compound/cid/{cid})
+ *  - otherwise  → translate a common Vietnamese alias (if any), then look up by name (/compound/name/{name})
  */
-function duongDanHopChat(tuKhoa: string): string {
-  const t = tuKhoa.trim();
+function compoundPath(keyword: string): string {
+  const t = keyword.trim();
   if (/^\d+$/.test(t)) return `cid/${t}`;
-  return `name/${encodeURIComponent(dichTenHopChat(t))}`;
+  return `name/${encodeURIComponent(translateCompoundName(t))}`;
 }
 
 /**
- * Thử lần lượt các biến thể tra cứu của một slug (xem `cacBienTheTraCuu` trong
- * dinh-danh-chat.ts) cho tới khi PubChem trả về dữ liệu — dừng ở biến thể đầu
- * tiên khớp. Dùng chung cho cả trang hợp chất và ảnh OG, tránh mỗi nơi tự thử
- * một biến thể khác nhau rồi lệch kết quả.
+ * Tries each lookup variant of a slug in turn (see `lookupVariants` in
+ * substance-identification.ts) until PubChem returns data — stops at the first
+ * matching variant. Shared by both the compound page and the OG image, so each
+ * one doesn't try a different variant and end up with mismatched results.
  */
-export async function layHopChatTheoBienThe(
-  cacBienThe: readonly string[],
-): Promise<{ tuKhoaDung: string; hopChat: HopChat | null }> {
-  for (const bt of cacBienThe) {
-    const hopChat = await layHopChat(bt);
-    if (hopChat) return { tuKhoaDung: bt, hopChat };
+export async function fetchCompoundByVariant(
+  variants: readonly string[],
+): Promise<{ matchedKeyword: string; compound: Compound | null }> {
+  for (const variant of variants) {
+    const compound = await fetchCompound(variant);
+    if (compound) return { matchedKeyword: variant, compound };
   }
-  return { tuKhoaDung: cacBienThe[0], hopChat: null };
+  return { matchedKeyword: variants[0], compound: null };
 }
 
-export async function layHopChat(ten: string): Promise<HopChat | null> {
-  const duLieu = await goiPug<BangThuocTinh>(
-    `/pug/compound/${duongDanHopChat(ten)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,InChIKey,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
+export async function fetchCompound(name: string): Promise<Compound | null> {
+  const data = await callPug<PropertyTableResponse>(
+    `/pug/compound/${compoundPath(name)}/property/MolecularFormula,MolecularWeight,ExactMass,IUPACName,ConnectivitySMILES,InChIKey,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Complexity/JSON`,
   );
-  const p = duLieu?.PropertyTable?.Properties?.[0];
+  const p = data?.PropertyTable?.Properties?.[0];
   if (!p) return null;
   return {
     cid: p.CID,
-    tenTruyVan: ten,
-    congThuc: p.MolecularFormula ?? null,
-    khoiLuongMol: soHoacNull(p.MolecularWeight ?? ""),
-    khoiLuongExact: soHoacNull(p.ExactMass ?? ""),
+    queryName: name,
+    formula: p.MolecularFormula ?? null,
+    molarMass: numberOrNull(p.MolecularWeight ?? ""),
+    exactMass: numberOrNull(p.ExactMass ?? ""),
     iupac: p.IUPACName ?? null,
     smiles: p.ConnectivitySMILES ?? p.SMILES ?? null,
     inchikey: p.InChIKey ?? null,
@@ -302,36 +303,36 @@ export async function layHopChat(ten: string): Promise<HopChat | null> {
     tpsa: p.TPSA ?? null,
     hbd: p.HBondDonorCount ?? null,
     hba: p.HBondAcceptorCount ?? null,
-    lienKetXoay: p.RotatableBondCount ?? null,
-    doPhucTap: p.Complexity ?? null,
+    rotatableBonds: p.RotatableBondCount ?? null,
+    complexity: p.Complexity ?? null,
   };
 }
 
-/* ------------------------------ HỢP CHẤT 3 CHIỀU ------------------------------- */
+/* ------------------------------ 3D COMPOUND STRUCTURE ------------------------------- */
 
-export interface NguyenTu3D {
-  so: number; // số hiệu nguyên tử
+export interface Atom3D {
+  atomicNumber: number; // atomic number
   x: number;
   y: number;
   z: number;
 }
 
-export interface LienKet3D {
-  a: number; // chỉ số nguyên tử 1
-  b: number; // chỉ số nguyên tử 2
-  bac: number; // bậc liên kết 1/2/3
+export interface Bond3D {
+  a: number; // atom index 1
+  b: number; // atom index 2
+  order: number; // bond order 1/2/3
 }
 
-export interface HopChat3D {
+export interface Compound3D {
   cid: number;
-  tenTruyVan: string;
-  congThuc: string | null;
-  khoiLuongMol: number | null;
-  nguyenTu: NguyenTu3D[];
-  lienKet: LienKet3D[];
+  queryName: string;
+  formula: string | null;
+  molarMass: number | null;
+  atoms: Atom3D[];
+  bonds: Bond3D[];
 }
 
-interface BanGhi3D {
+interface Compound3DRecord {
   PC_Compounds: {
     id: { id: { cid: number } };
     atoms: { aid: number[]; element: number[] };
@@ -342,128 +343,139 @@ interface BanGhi3D {
 
 interface ConformerCache {
   cid: number;
-  congThuc: string | null;
-  khoiLuongMol: number | null;
-  nguyenTu: NguyenTu3D[];
-  lienKet: LienKet3D[];
+  formula: string | null;
+  molarMass: number | null;
+  atoms: Atom3D[];
+  bonds: Bond3D[];
 }
 
 /**
- * Đọc conformer 3D đã đồng bộ sẵn trong Postgres (khớp alias CHÍNH XÁC, không
- * dấu/không phân biệt hoa thường — bảng compound_aliases đã có từ PHA 4) trước
- * khi gọi mạng NCBI — xem docs/tim-kiem.md. Lỗi DB (mất kết nối, DATABASE_URL
- * sai, chưa chạy db:push…) KHÔNG được làm hỏng tra cứu — chỉ rơi về gọi PubChem
- * như trước khi có cache này, giống đúng quy tắc đã áp dụng cho /api/goi-y.
+ * Reads a 3D conformer already synced into Postgres (matches alias EXACTLY,
+ * accent/case-insensitive — the compound_aliases table has existed since
+ * PHASE 4) before hitting the NCBI network — see docs/search.md. A DB error
+ * (lost connection, wrong DATABASE_URL, db:push never run…) must NOT break the
+ * lookup — it just falls back to calling PubChem as before this cache existed,
+ * the same rule already applied to /api/suggestions.
  */
-async function layConformerTuCache(tenSach: string): Promise<ConformerCache | null> {
+async function fetchConformerFromCache(trimmedName: string): Promise<ConformerCache | null> {
   try {
-    // Import động: @/db throw ngay khi load nếu thiếu DATABASE_URL — pubchem.ts
-    // vẫn phải dùng được KHÔNG cần DB (vd. tests/unit/pubchem-parse.test.ts chỉ
-    // kiểm parsing thuần), nên import Postgres client CHỈ khi thực sự cần, trong
-    // try/catch này.
+    // Dynamic import: @/db throws immediately on load if DATABASE_URL is missing —
+    // pubchem.ts must still work WITHOUT a DB (e.g. tests/unit/pubchem-parse.test.ts
+    // only exercises pure parsing), so the Postgres client is imported ONLY when
+    // actually needed, inside this try/catch.
     const { db } = await import("@/db");
     const { rows } = await db.execute<{
       cid: number;
-      congThuc: string | null;
-      khoiLuongMol: number | null;
+      formula: string | null;
+      molarMass: number | null;
       conformers3d: unknown;
     }>(sql`
-      SELECT c.cid, c.cong_thuc AS "congThuc", c.khoi_luong_mol AS "khoiLuongMol",
+      SELECT c.cid, c.cong_thuc AS "formula", c.khoi_luong_mol AS "molarMass",
              c.conformers_3d AS "conformers3d"
       FROM compound_aliases a
       JOIN compound_cache c ON c.cid = a.cid
-      WHERE f_unaccent(lower(a.alias)) = f_unaccent(lower(${tenSach}))
+      WHERE f_unaccent(lower(a.alias)) = f_unaccent(lower(${trimmedName}))
         AND c.conformers_3d IS NOT NULL
       LIMIT 1
     `);
     const r = rows[0];
-    const banGhi3d = r?.conformers3d as { nguyenTu?: NguyenTu3D[]; lienKet?: LienKet3D[] } | undefined;
-    if (!r || !banGhi3d?.nguyenTu) return null;
+    // PERSISTENCE-BOUNDARY NOTE: `conformers_3d` is a jsonb blob written by
+    // compound-sync.ts using the RAW key names `nguyenTu`/`lienKet` (see the
+    // comment there). Rows already synced by earlier runs have that exact JSON
+    // shape on disk in Postgres — reading them with renamed keys would silently
+    // treat every already-cached row as "no conformer", forcing a PubChem
+    // network re-fetch instead of a hard failure (safe, but wasteful). Rather
+    // than write a DB migration to rewrite historic JSON blobs, we deliberately
+    // keep reading the OLD raw keys here and only translate to the new English
+    // TypeScript-side names (`atoms`/`bonds`) once the value has left the JSON
+    // boundary.
+    const record3d = r?.conformers3d as { nguyenTu?: Atom3D[]; lienKet?: Bond3D[] } | undefined;
+    if (!r || !record3d?.nguyenTu) return null;
     return {
       cid: r.cid,
-      congThuc: r.congThuc,
-      khoiLuongMol: r.khoiLuongMol,
-      nguyenTu: banGhi3d.nguyenTu,
-      lienKet: banGhi3d.lienKet ?? [],
+      formula: r.formula,
+      molarMass: r.molarMass,
+      atoms: record3d.nguyenTu,
+      bonds: record3d.lienKet ?? [],
     };
   } catch (e) {
-    console.error("[pubchem] Đọc conformer cache lỗi, rơi về PubChem:", e instanceof Error ? e.message : e);
+    console.error("[pubchem] Failed to read conformer cache, falling back to PubChem:", e instanceof Error ? e.message : e);
     return null;
   }
 }
 
-export async function layHopChat3D(ten: string, thuocTinhDaCo?: HopChat | null): Promise<HopChat3D | null> {
-  const tenSach = ten.trim().slice(0, 120);
+export async function fetchCompound3D(name: string, existingProperties?: Compound | null): Promise<Compound3D | null> {
+  const trimmedName = name.trim().slice(0, 120);
 
-  const tuCache = await layConformerTuCache(tenSach);
-  if (tuCache) {
+  const cached = await fetchConformerFromCache(trimmedName);
+  if (cached) {
     return {
-      cid: tuCache.cid,
-      tenTruyVan: ten,
-      congThuc: thuocTinhDaCo?.congThuc ?? tuCache.congThuc,
-      khoiLuongMol: thuocTinhDaCo?.khoiLuongMol ?? tuCache.khoiLuongMol,
-      nguyenTu: tuCache.nguyenTu,
-      lienKet: tuCache.lienKet,
+      cid: cached.cid,
+      queryName: name,
+      formula: existingProperties?.formula ?? cached.formula,
+      molarMass: existingProperties?.molarMass ?? cached.molarMass,
+      atoms: cached.atoms,
+      bonds: cached.bonds,
     };
   }
 
-  // Không tự gọi layHopChat ở đây nữa — caller thường ĐÃ có thuộc tính rồi
-  // (truyền qua thuocTinhDaCo). Trước đây lồng gọi khiến 1 lượt xem trang
-  // hợp chất tốn 3 lệnh gọi PubChem cho cùng một chất, thay vì 2.
-  const banGhi = await goiPug<BanGhi3D>(`/pug/compound/${duongDanHopChat(tenSach)}/JSON?record_type=3d`);
-  const pc = banGhi?.PC_Compounds?.[0];
+  // No longer calls fetchCompound here — the caller usually ALREADY has the
+  // properties (passed via existingProperties). Nesting the call used to cost
+  // 1 compound-page view 3 PubChem calls for the same substance, instead of 2.
+  const response = await callPug<Compound3DRecord>(`/pug/compound/${compoundPath(trimmedName)}/JSON?record_type=3d`);
+  const pc = response?.PC_Compounds?.[0];
   const conformer = pc?.coords?.[0]?.conformers?.[0];
   if (!pc || !conformer) return null;
 
   const { x = [], y = [], z = [] } = conformer;
-  // Đưa phân tử về tâm khối hình học
+  // Recenter the molecule on its geometric centroid
   const n = pc.atoms.element.length;
   const tx = x.reduce((a, b) => a + b, 0) / n;
   const ty = y.reduce((a, b) => a + b, 0) / n;
   const tz = z.reduce((a, b) => a + b, 0) / n;
 
-  const nguyenTu: NguyenTu3D[] = pc.atoms.element.map((so, i) => ({
-    so,
-    x: (x[i] - tx) * TY_LE_TOA_DO_3D,
-    y: (y[i] - ty) * TY_LE_TOA_DO_3D,
-    z: (z[i] - tz) * TY_LE_TOA_DO_3D,
+  const atomsLocal: Atom3D[] = pc.atoms.element.map((atomicNumber, i) => ({
+    atomicNumber,
+    x: (x[i] - tx) * COORD_SCALE_3D,
+    y: (y[i] - ty) * COORD_SCALE_3D,
+    z: (z[i] - tz) * COORD_SCALE_3D,
   }));
 
-  const lienKet: LienKet3D[] = (pc.bonds?.aid1 ?? []).map((a1, i) => ({
+  const bondsLocal: Bond3D[] = (pc.bonds?.aid1 ?? []).map((a1, i) => ({
     a: a1 - 1,
     b: (pc.bonds?.aid2 ?? [])[i] - 1,
-    bac: (pc.bonds?.order ?? [])[i] || 1,
+    order: (pc.bonds?.order ?? [])[i] || 1,
   }));
 
   return {
     cid: pc.id.id.cid,
-    tenTruyVan: ten,
-    congThuc: thuocTinhDaCo?.congThuc ?? null,
-    khoiLuongMol: thuocTinhDaCo?.khoiLuongMol ?? null,
-    nguyenTu,
-    lienKet,
+    queryName: name,
+    formula: existingProperties?.formula ?? null,
+    molarMass: existingProperties?.molarMass ?? null,
+    atoms: atomsLocal,
+    bonds: bondsLocal,
   };
 }
 
-/* ----------------------------------- GỢI Ý ------------------------------------- */
+/* ----------------------------------- SUGGESTIONS ------------------------------------- */
 
-interface GoiYJson {
+interface SuggestionJson {
   dictionary_terms?: { compound?: string[] };
 }
 
-export async function layGoiY(tu: string): Promise<string[]> {
-  const q = tu.trim().replace(/[/\\]/g, "").slice(0, 60);
+export async function getSuggestions(keyword: string): Promise<string[]> {
+  const q = keyword.trim().replace(/[/\\]/g, "").slice(0, 60);
   if (q.length < 2) return [];
 
-  // Alias tiếng Việt phổ biến (nước, muối, đường…) — thêm dạng tiếng Anh thật lên đầu gợi ý.
-  const goiYViet = goiYTenTiengViet(q);
+  // Common Vietnamese aliases (nước, muối, đường…) — put the real English form at the head of the suggestions.
+  const vietnameseSuggestions = suggestVietnameseName(q);
 
-  // CID thuần số: PubChem autocomplete không hiểu số, tra thẳng không cần gợi ý tên.
+  // Pure-numeric CID: PubChem autocomplete doesn't understand numbers, look it up directly without name suggestions.
   if (/^\d+$/.test(q)) return [];
 
-  const data = await goiPug<GoiYJson>(
-    `/autocomplete/compound/${encodeURIComponent(dichTenHopChat(q))}/JSON?limit=8`,
+  const data = await callPug<SuggestionJson>(
+    `/autocomplete/compound/${encodeURIComponent(translateCompoundName(q))}/JSON?limit=8`,
   );
-  const goiYPubChem = data?.dictionary_terms?.compound ?? [];
-  return [...new Set([...goiYViet, ...goiYPubChem])].slice(0, 8);
+  const pubchemSuggestions = data?.dictionary_terms?.compound ?? [];
+  return [...new Set([...vietnameseSuggestions, ...pubchemSuggestions])].slice(0, 8);
 }

@@ -1,58 +1,64 @@
-# ADR 0003 — Whitelist giáo dục: giới hạn index khi upstream có hơn 100 triệu chất
+# ADR 0003 — Educational whitelist: limiting what gets indexed when upstream has 100M+ substances
 
-## Bối cảnh
+## Context
 
-`/hop-chat/[ten]` tra cứu trực tiếp PUG-REST của PubChem — một cơ sở dữ liệu
-công cộng với hơn 100 triệu hợp chất, không có khái niệm "phù hợp học sinh
-cấp 3" hay "an toàn để quảng bá". Route nhận bất kỳ tên nào và trả về đúng
-những gì PubChem có.
+`/hop-chat/[ten]` looks compounds up directly against PubChem's PUG-REST — a
+public database of over 100 million compounds with no concept of "suitable
+for a high-school student" or "safe to promote". The route accepts any name
+and returns exactly whatever PubChem has.
 
-Hệ quả cụ thể đã quan sát được: `/hop-chat/love` trả về MDA (chất ma tuý tổng
-hợp), `/hop-chat/sunshine` trả về LSD — cả hai đều là tên lóng tiếng Anh có
-thật trên PubChem. Một sản phẩm giáo dục hoá học cho học sinh phổ thông vô
-tình dựng permalink, cho index, và gắn OG-image quảng bá cho các chất này chỉ
-vì route không phân biệt được "chất trong chương trình học" với "bất kỳ chất
-nào PubChem biết tới".
+The concrete consequence observed in practice: `/hop-chat/love` returned MDA
+(a synthetic drug), `/hop-chat/sunshine` returned LSD — both real English
+slang names that exist on PubChem. A chemistry education product for
+secondary-school students was unintentionally generating permalinks, letting
+search engines index, and building OG-image previews promoting these
+substances, simply because the route couldn't distinguish "a substance in
+the curriculum" from "any substance PubChem happens to know about".
 
-## Quyết định
+## Decision
 
-1. **Không chặn tri thức** — mọi chất PubChem có vẫn xem được ở
-   `/hop-chat/{ten}`, số liệu vẫn lấy thật, không có "danh sách đen" chặn
-   truy cập.
-2. **Chỉ giới hạn những gì được prerender + cho phép index.** Chất ngoài
-   whitelist giáo dục vẫn render 200 bình thường, nhưng kèm banner "Ngoài
-   chương trình phổ thông" và thẻ `robots: { index: false }` — Google không
-   lập chỉ mục, nhưng người dùng gõ đúng tên vẫn tra cứu được.
-3. **Whitelist suy trực tiếp từ hai danh mục đã có sẵn trong repo, không tự
-   đặt thêm entry mới:**
+1. **Never gate access to knowledge** — every substance PubChem has is still
+   viewable at `/compound/{name}`, with real data, and there is no "blocklist"
+   preventing access.
+2. **Only limit what gets prerendered and allowed to be indexed.** A
+   substance outside the educational whitelist still renders a normal 200,
+   but with a "Outside the standard curriculum" banner and a
+   `robots: { index: false }` tag — Google won't index it, but a user who
+   types the exact name can still look it up.
+3. **The whitelist is derived directly from two categories that already
+   exist in the repo, with no new entries invented on top:**
 
    ```ts
-   // src/lib/dinh-danh-chat.ts
-   for (const { ten } of HOP_CHAT_NOI_BAT) theoSlug.set(slugCanonical(ten), ...);
-   for (const [vi, en] of Object.entries(ALIAS_HOP_CHAT)) { ... }
-   export const CHAT_GIAO_DUC: readonly ChatGiaoDuc[] = [...theoSlug.values()];
+   // src/lib/substance-identification.ts
+   for (const { ten } of FEATURED_COMPOUNDS) bySlug.set(canonicalSlug(ten), ...);
+   for (const [vi, en] of Object.entries(COMPOUND_ALIASES)) { ... }
+   export const EDUCATIONAL_SUBSTANCES: readonly EducationalSubstance[] = [...bySlug.values()];
    ```
 
-   `HOP_CHAT_NOI_BAT` (các chất nổi bật có mô hình 3D) và `ALIAS_HOP_CHAT`
-   (39 khoá tiếng Việt tác giả đã tuyển cho tính năng tìm kiếm) — hai danh
-   mục này *chính là* danh mục giáo dục thật của sản phẩm, được tuyển từ
-   trước vì lý do khác (nổi bật, có bản dịch tiếng Việt), không phải một
-   danh sách tay mới bịa ra riêng cho việc lọc nội dung.
+   `FEATURED_COMPOUNDS` (compounds featured with a 3D model) and
+   `COMPOUND_ALIASES` (39 Vietnamese keys the author curated for the search
+   feature) — these two categories *are* the product's real educational
+   catalog, curated beforehand for unrelated reasons (being featured, having
+   a Vietnamese translation), not a hand-written list invented specifically
+   for content filtering.
 
-## Vì sao không tự viết danh sách "chất an toàn" riêng
+## Why not write a separate "safe substances" list
 
-Một danh sách kiểm duyệt riêng sẽ là điểm dữ liệu tự chế thứ hai cần duy trì
-song song với `ALIAS_HOP_CHAT`/`HOP_CHAT_NOI_BAT` — hai nguồn dễ lệch nhau
-theo thời gian (thêm alias mới mà quên thêm vào whitelist, hoặc ngược lại).
-Suy trực tiếp từ danh mục đã tồn tại vì lý do sản phẩm khác nghĩa là whitelist
-luôn nhất quán với "những chất trang này thực sự giới thiệu", không cần đồng
-bộ tay hai nơi.
+A dedicated moderation list would be a second fabricated data point that
+would need to be maintained in parallel with
+`COMPOUND_ALIASES`/`FEATURED_COMPOUNDS` — two sources that would drift apart
+over time (adding a new alias but forgetting to add it to the whitelist, or
+vice versa). Deriving it directly from categories that already exist for
+other product reasons means the whitelist always stays consistent with
+"the substances this site actually showcases", with no manual two-place sync
+required.
 
-## Hệ quả
+## Consequences
 
-- Whitelist dùng chung `slugCanonical()` (ADR 0002) nên tự động không phân
-  biệt `nước`/`nuoc`/`NƯỚC`.
-- `generateStaticParams()` chỉ prerender whitelist — build không nổ ra hàng
-  trăm triệu trang tĩnh.
-- Nếu tương lai mở rộng chương trình học (thêm alias/chất nổi bật mới),
-  whitelist tự lớn theo — không có bước "nhớ cập nhật danh sách lọc" riêng.
+- The whitelist shares `canonicalSlug()` (ADR 0002), so it automatically
+  treats `nước`/`nuoc`/`NƯỚC` as the same entry.
+- `generateStaticParams()` only prerenders the whitelist — the build doesn't
+  explode into hundreds of millions of static pages.
+- If the curriculum coverage expands in the future (new aliases/featured
+  substances added), the whitelist grows automatically along with it — there
+  is no separate "remember to update the filter list" step.
