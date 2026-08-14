@@ -389,14 +389,35 @@ async function fetchConformerFromCache(trimmedName: string): Promise<ConformerCa
     // keep reading the OLD raw keys here and only translate to the new English
     // TypeScript-side names (`atoms`/`bonds`) once the value has left the JSON
     // boundary.
-    const record3d = r?.conformers3d as { nguyenTu?: Atom3D[]; lienKet?: Bond3D[] } | undefined;
+    //
+    // The individual atom/bond objects INSIDE those arrays carry the same
+    // pre-rename legacy field names too (`so` for atomic number, `bac` for
+    // bond order) on any row synced before the pubchem.ts field rename — only
+    // rows synced from now on carry `atomicNumber`/`order` directly. Normalize
+    // both shapes here so every consumer downstream can rely on Atom3D/Bond3D
+    // unconditionally instead of silently rendering with a fallback color.
+    const record3d = r?.conformers3d as
+      | {
+          nguyenTu?: Array<{ x: number; y: number; z: number; so?: number; atomicNumber?: number }>;
+          lienKet?: Array<{ a: number; b: number; bac?: number; order?: number }>;
+        }
+      | undefined;
     if (!r || !record3d?.nguyenTu) return null;
     return {
       cid: r.cid,
       formula: r.formula,
       molarMass: r.molarMass,
-      atoms: record3d.nguyenTu,
-      bonds: record3d.lienKet ?? [],
+      atoms: record3d.nguyenTu.map((atom) => ({
+        x: atom.x,
+        y: atom.y,
+        z: atom.z,
+        atomicNumber: atom.atomicNumber ?? atom.so ?? 0,
+      })),
+      bonds: (record3d.lienKet ?? []).map((bond) => ({
+        a: bond.a,
+        b: bond.b,
+        order: bond.order ?? bond.bac ?? 1,
+      })),
     };
   } catch (e) {
     console.error("[pubchem] Failed to read conformer cache, falling back to PubChem:", e instanceof Error ? e.message : e);
