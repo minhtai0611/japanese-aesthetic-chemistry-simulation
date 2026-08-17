@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Phòng thí nghiệm hoá học ảo tiếng Việt trên dữ liệu mở PubChem (NCBI)",
   "private": true,
+  "packageManager": "npm@10.8.2",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
