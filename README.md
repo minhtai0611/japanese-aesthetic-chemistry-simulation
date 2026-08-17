@@ -54,11 +54,13 @@ Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết
 | Lighthouse Performance (trang có WebGL) | — | **30-66/100** (dưới ngưỡng kế hoạch) | xem `docs/lighthouse.md` |
 | Tương phản màu (WCAG AA) | 3 cặp FAIL | **0/9 FAIL** | `python3 scripts/check-contrast.py` |
 | JS tải khi bật "Tiết kiệm" | — | **-40,6%** | đo trên production build, xem `docs/a11y.md` §7 |
-| Nguồn dữ liệu tự chế | — | **0** | `grep -rn 'padStart(6, *"F")' src` |
+| Nguồn dữ liệu tự chế | — | **0**\* | `grep -rn 'padStart(6, *"F")' src` |
 | Tham chiếu AI/LLM trong code | — | **0**\* | `grep -rniE "openai\|anthropic\|embedding\|langchain" package.json src` |
 
-\* Một dòng khớp là chính comment tuyên bố "KHÔNG dùng AI/embedding" — không phải
-lời gọi AI thật.
+\* Cả hai dòng có 1 kết quả khớp trong code, nhưng đó là comment mô tả/cấm
+đối tượng đó (`src/lib/pubchem.ts` giải thích vì sao *không* dùng
+`padStart(6, "F")`; `src/lib/search.ts` tuyên bố "KHÔNG dùng AI/embeddings") —
+không phải lệnh gọi thật.
 
 ## Stack
 
