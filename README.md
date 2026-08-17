@@ -51,9 +51,9 @@ Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết
 | Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config-118.test.ts`, quét toàn bộ 118 nguyên tố với dữ liệu PubChem thật) |
 | Lighthouse Accessibility (cả 3 URL) | — | **100/100** | xem `docs/a11y.md` |
 | Lighthouse SEO (cả 3 URL) | — | **100/100** | `npx @lhci/cli autorun` |
-| Lighthouse Performance (trang có WebGL) | — | **43-75/100** (đo lại 2026-08-17, dưới ngưỡng kế hoạch) | xem `docs/lighthouse.md` |
+| Lighthouse Performance (trang có WebGL) | — | **46-80/100** (đo trên URL production thật 2026-08-17, dưới ngưỡng kế hoạch) | `lighthouse` nhắm vào URL "Live" ở trên — xem `docs/lighthouse.md` |
 | Tương phản màu (WCAG AA) | 3 cặp FAIL | **0/9 FAIL** | `python3 scripts/check-contrast.py` |
-| JS tải khi bật "Tiết kiệm" | — | **-33%** (đo lại 2026-08-17) | đo trên production build, xem `docs/a11y.md` §7 |
+| JS tải khi bật "Tiết kiệm" | — | **-41,9%** (đo trên URL production thật 2026-08-17) | xem `docs/a11y.md` §7 |
 | Nguồn dữ liệu tự chế | — | **0**\* | `grep -rn 'padStart(6, *"F")' src` |
 | Tham chiếu AI/LLM trong code | — | **0**\* | `grep -rniE "openai\|anthropic\|embedding\|langchain" package.json src` |
 

@@ -75,7 +75,7 @@ enough to catch a real regression that drags the score back down to the original
 baseline range (~0.30–0.40). Accessibility/SEO stay at ≥ 0.95 since both genuinely
 hit 100/100.
 
-## Re-measured 2026-08-17 (current `master`, production build)
+## Re-measured 2026-08-17, local build (current `master`, `next build && next start`)
 
 | URL | Performance (2 runs) | Accessibility | SEO |
 |---|---|---|---|
@@ -90,6 +90,24 @@ the last recorded range in this doc on `/periodic-table` in particular (72–75 
 71 single-run figure noted above) — plausibly Next.js/Turbopack build improvements
 since the last measurement rather than a deliberate optimization; not investigated
 further this pass. `.lighthouserc.json`'s 0.35 threshold still holds with real margin.
+
+## Re-measured 2026-08-17, actual production URL
+
+Same day, same methodology, but against the real deployed site
+(`https://japanese-aesthetic-chemistry-simula.vercel.app`, the README's "Live" link)
+instead of a local build — this is the number a reader actually experiences, and
+it's noticeably higher across the board than the local-build figures directly above:
+
+| URL | Performance (2 runs) | Accessibility | SEO |
+|---|---|---|---|
+| `/` | **47–49** | **100** | **100** |
+| `/periodic-table` | **78–80** | **100** | **100** |
+| `/compound/caffeine` | **46–48** | **100** | **100** |
+
+This is now the range recorded in the top-level README table. Kept the local-build
+measurement above as a data point (local and production builds clearly diverge here,
+likely Vercel's edge network/CDN and build environment vs. a local machine) rather
+than deleting it — future re-measurements should specify which environment they used.
 
 ## Remaining work if optimizing Performance further
 
