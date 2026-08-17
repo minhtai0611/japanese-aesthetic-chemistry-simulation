@@ -75,6 +75,22 @@ enough to catch a real regression that drags the score back down to the original
 baseline range (~0.30–0.40). Accessibility/SEO stay at ≥ 0.95 since both genuinely
 hit 100/100.
 
+## Re-measured 2026-08-17 (current `master`, production build)
+
+| URL | Performance (2 runs) | Accessibility | SEO |
+|---|---|---|---|
+| `/` | **43–45** | **100** | **100** |
+| `/periodic-table` | **72–75** | **100** | **100** |
+| `/compound/caffeine` | **44–45** | **100** | **100** |
+
+Same methodology as above (`lighthouse` CLI, headless Chromium, `--no-sandbox`, no
+`--disable-gpu`, production build via `next build && next start`, no cache/CDN).
+Accessibility and SEO are unchanged at 100/100. Performance is noticeably higher than
+the last recorded range in this doc on `/periodic-table` in particular (72–75 vs. the
+71 single-run figure noted above) — plausibly Next.js/Turbopack build improvements
+since the last measurement rather than a deliberate optimization; not investigated
+further this pass. `.lighthouserc.json`'s 0.35 threshold still holds with real margin.
+
 ## Remaining work if optimizing Performance further
 
 1. ~~Defer `<Canvas>` mount with `IntersectionObserver`~~ — DONE, a clear measured
