@@ -44,16 +44,16 @@ Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết
 |---|---|---|---|
 | Lỗi 5xx trên URL surface | 14 | **0** | `npm run audit:urls` |
 | Lỗ hổng npm mức HIGH | 12 | **0** | `npm audit --audit-level=high` |
-| Alias tiếng Việt bị sập (500) | 14/39 | **0/39** | `curl .../compound/n%C6%B0%E1%BB%9Bc` → 200 (qua 308) |
+| Alias tiếng Việt bị sập (500) | 14/39 | **0/40** | `npm run audit:urls` (số alias đã tăng lên 40) |
 | Test tự động (unit) | 0 | **294 PASS** | `npm run test` |
 | Test tự động (E2E) | 0 | **6/6 PASS** | `npm run test:e2e` |
 | Cân bằng phương trình đúng | — | **50/50** | `npm run test` (`equilibrium.test.ts`) |
 | Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config-118.test.ts`, quét toàn bộ 118 nguyên tố với dữ liệu PubChem thật) |
 | Lighthouse Accessibility (cả 3 URL) | — | **100/100** | xem `docs/a11y.md` |
 | Lighthouse SEO (cả 3 URL) | — | **100/100** | `npx @lhci/cli autorun` |
-| Lighthouse Performance (trang có WebGL) | — | **30-66/100** (dưới ngưỡng kế hoạch) | xem `docs/lighthouse.md` |
+| Lighthouse Performance (trang có WebGL) | — | **43-75/100** (đo lại 2026-08-17, dưới ngưỡng kế hoạch) | xem `docs/lighthouse.md` |
 | Tương phản màu (WCAG AA) | 3 cặp FAIL | **0/9 FAIL** | `python3 scripts/check-contrast.py` |
-| JS tải khi bật "Tiết kiệm" | — | **-40,6%** | đo trên production build, xem `docs/a11y.md` §7 |
+| JS tải khi bật "Tiết kiệm" | — | **-33%** (đo lại 2026-08-17) | đo trên production build, xem `docs/a11y.md` §7 |
 | Nguồn dữ liệu tự chế | — | **0**\* | `grep -rn 'padStart(6, *"F")' src` |
 | Tham chiếu AI/LLM trong code | — | **0**\* | `grep -rniE "openai\|anthropic\|embedding\|langchain" package.json src` |
 
