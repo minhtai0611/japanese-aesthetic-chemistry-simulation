@@ -2,7 +2,7 @@
 """
 Kiểm tra độ tương phản WCAG 2.2 cho các cặp màu chữ/nền thật sự xuất hiện
 trên trang — đọc trực tiếp từ src/app/globals.css (@theme) và
-src/lib/element.ts (MAU_KHOI), không chép tay giá trị hex để tránh
+src/lib/element.ts (BLOCK_COLORS), không chép tay giá trị hex để tránh
 script và code lệch nhau theo thời gian.
 
 Ngưỡng WCAG AA: văn bản thường >= 4.5:1, văn bản lớn (>=18pt hoặc
@@ -48,7 +48,7 @@ def doc_bien_theme() -> dict[str, str]:
 
 def doc_mau_khoi() -> dict[str, str]:
     van = NGUYEN_TO_TS.read_text(encoding="utf-8")
-    khoi_khop = re.search(r"MAU_KHOI[^{]*\{([^}]*)\}", van)
+    khoi_khop = re.search(r"BLOCK_COLORS[^{]*\{([^}]*)\}", van)
     if not khoi_khop:
         return {}
     return dict(re.findall(r"(\w+):\s*\"(#[0-9a-fA-F]{3,6})\"", khoi_khop.group(1)))
@@ -70,10 +70,10 @@ def main() -> int:
         ("Liên kết/nhấn (shu-sang) trên nền sumi", bien["shu-sang"], sumi, 3.0),
         ("Vàng kim (kin) trên nền sumi", bien["kin"], sumi, 3.0),
         ("Nút CTA: trắng trên nền shu (.nut-chu)", "#ffffff", bien["shu"], 4.5),
-        ("Khối s (MAU_KHOI.s) trên nền sumi-nhat", khoi["s"], sumi_nhat, 4.5),
-        ("Khối p (MAU_KHOI.p) trên nền sumi-nhat", khoi["p"], sumi_nhat, 4.5),
-        ("Khối d (MAU_KHOI.d) trên nền sumi-nhat", khoi["d"], sumi_nhat, 4.5),
-        ("Khối f (MAU_KHOI.f) trên nền sumi-nhat", khoi["f"], sumi_nhat, 4.5),
+        ("Khối s (BLOCK_COLORS.s) trên nền sumi-nhat", khoi["s"], sumi_nhat, 4.5),
+        ("Khối p (BLOCK_COLORS.p) trên nền sumi-nhat", khoi["p"], sumi_nhat, 4.5),
+        ("Khối d (BLOCK_COLORS.d) trên nền sumi-nhat", khoi["d"], sumi_nhat, 4.5),
+        ("Khối f (BLOCK_COLORS.f) trên nền sumi-nhat", khoi["f"], sumi_nhat, 4.5),
     ]
 
     rong = max(len(nhan) for nhan, *_ in CAC_CAP)
