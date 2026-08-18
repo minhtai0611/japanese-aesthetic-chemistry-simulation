@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Scale, Sigma } from "lucide-react";
 import { balanceEquation, type BalanceResult } from "@/lib/chemistry/equilibrium";
 import type { ThermodynamicsResult } from "@/lib/chemistry/thermodynamics";
 import { parseFormula } from "@/lib/chemistry/formula-parser";
 import { calculateMolarMass, molarMassBySymbolTable } from "@/lib/chemistry/molar-mass";
-import type { ElementInfo } from "@/lib/pubchem";
+import { useElements } from "@/hooks/use-elements";
 
 const EXAMPLES = [
   { left: "H2 + O2", right: "H2O" },
@@ -31,24 +31,9 @@ export default function EquilibriumLab() {
   const [leftInput, setLeftInput] = useState(EXAMPLES[0].left);
   const [rightInput, setRightInput] = useState(EXAMPLES[0].right);
   const [result, setResult] = useState<BalanceResult | null>(null);
-  const [elements, setElements] = useState<ElementInfo[] | null>(null);
+  const elements = useElements();
   const [thermodynamics, setThermodynamics] = useState<ThermodynamicsResult | null>(null);
   const [loadingThermodynamics, setLoadingThermodynamics] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/elements")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: ElementInfo[] | null) => {
-        if (!cancelled && d) setElements(d);
-      })
-      .catch(() => {
-        /* Atomic mass table is only used to additionally show mass conservation — fine if unavailable */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const molarMassTable = useMemo(() => (elements ? molarMassBySymbolTable(elements) : null), [elements]);
 
