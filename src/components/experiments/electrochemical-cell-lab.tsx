@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, Zap } from "lucide-react";
 import type { ElementInfo } from "@/lib/pubchem";
 import { getStandardElectrodePotential } from "@/lib/chemistry/standard-electrode-potential";
 import { calculateElectrochemistry } from "@/lib/chemistry/nernst";
+import { useElements } from "@/hooks/use-elements";
 
 const HYDROGEN_ATOMIC_NUMBER = 1;
 
@@ -88,22 +89,7 @@ function ElectrodeSelect({
 }
 
 export default function ElectrochemicalCellLab() {
-  const [elements, setElements] = useState<ElementInfo[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/elements")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: ElementInfo[] | null) => {
-        if (!cancelled && d) setElements(d);
-      })
-      .catch(() => {
-        /* Element list is only used to show the name/symbol in the picker — fine if unavailable */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const elements = useElements();
 
   const electrodesWithStandardPotential = useMemo(
     () => (elements ?? []).filter((n) => getStandardElectrodePotential(n.atomicNumber) !== null),
