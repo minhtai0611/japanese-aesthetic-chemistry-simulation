@@ -2,9 +2,18 @@
 
 [![CI](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/minhtai0611/japanese-aesthetic-chemistry-simulation/actions/workflows/ci.yml)
 
-A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 118-element periodic table, 3D molecule/compound viewers (with a Van der Waals surface layer and an Angstrom/degree measurement tool), chemical structure search (SMILES/IUPAC/InChIKey/weight), and interactive virtual-lab experiments (titration, dilution, phase-change with a P-T diagram, equation balancing, reaction thermodynamics, electrochemistry) — styled with a Japanese aesthetic, kanji labels alongside Vietnamese copy.
+A virtual chemistry lab for Vietnamese high-school students, built with Next.js. Real periodic-table data, real 3D molecule geometry, real lab math — nothing simulated by a language model.
 
-**Live:** https://japanese-aesthetic-chemistry-simula.vercel.app
+**Live:** [japanese-aesthetic-chemistry-simula.vercel.app](https://japanese-aesthetic-chemistry-simula.vercel.app)
+
+## What it does
+
+- **Periodic table** — all 118 elements, rendered as a real semantic `<table>`, each with a detail page sourced live from PubChem
+- **3D molecule viewer** — WebGL (three.js) with a Van der Waals surface layer and a click-to-measure Angstrom/degree tool, falling back to a 2D SVG projection when WebGL is unavailable or the user has data-saver mode on
+- **Structure search** — by SMILES, IUPAC name, InChIKey, or molecular-weight range
+- **Six lab rooms** — titration, dilution, phase change (with a real P–T diagram via Clausius–Clapeyron), equation balancing (exact-rational Gauss–Jordan), reaction thermodynamics (Hess's law), electrochemistry (Nernst equation)
+
+Japanese aesthetic throughout — kanji labels alongside the Vietnamese UI copy.
 
 ## Screenshots
 
@@ -12,64 +21,60 @@ A Vietnamese-language virtual chemistry lab built with Next.js. It renders the 1
 |---|---|
 | ![Hero section with a rotating 3D molecule](docs/screenshots/hero-3d.jpg) | ![118-element periodic table as a real, screen-reader-navigable table](docs/screenshots/bang-tuan-hoan.jpg) |
 
-| Titration room | Molecule observatory |
+| Titration room | Molecule viewer |
 |---|---|
 | ![Acid–base titration room with a live pH curve](docs/screenshots/chuan-do.jpg) | ![3D compound viewer with PubChem-sourced properties](docs/screenshots/phan-tu.jpg) |
 
 ## Data policy
 
-This app does not fabricate chemistry data. Every element/compound value is sourced directly from [PubChem PUG-REST](https://pubchem.ncbi.nlm.nih.gov/rest/pug) (NCBI, public, no API key) and synced with a controlled cache (`revalidate: 7 days`) — pages are **not** queried live against PubChem on every pageview, in line with [PubChem's usage policy](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest-tutorial) of staying under 5 requests/second against a shared public server. That limit is enforced by a distributed token-bucket rate limiter backed by Postgres (`src/lib/rate-limiter.ts`), not an in-process counter — so the real, aggregate request rate stays under the ceiling even across multiple concurrent Vercel serverless instances. Simulated calculations (pH, dilution `C₁V₁=C₂V₂`, molarity `n=m/M`, phase transitions, equation balancing via Gauss-Jordan) are real formulas/algorithms computed on top of that real data — never estimated, invented, or delegated to an LLM. See `docs/adr/` for the reasoning behind these decisions in more depth.
+No chemistry value in this app is invented. Everything comes straight from [PubChem PUG-REST](https://pubchem.ncbi.nlm.nih.gov/rest/pug) (NCBI, public, no API key), synced into Postgres on a 7-day cache — pages don't hit PubChem live on every view, which keeps the app under [PubChem's 5 requests/second policy](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest-tutorial) even across concurrent serverless instances, enforced by a distributed Postgres-backed token bucket (`src/lib/rate-limiter.ts`) rather than a per-process counter.
 
-### Provenance / certainty
+Everything computed on top of that data — pH, dilution (C₁V₁=C₂V₂), molarity (n=m/M), phase transitions, equation balancing — is a real formula or algorithm, never an estimate and never an LLM call. The reasoning behind each of these decisions is written up in `docs/adr/`.
 
-PubChem marks some superheavy elements' standard state as `"Expected to be a ..."` instead of a measured value (too few atoms ever produced to observe bulk phase). `NguyenTo.trangThaiCertainty` / `cauHinhElectronCertainty` (`src/lib/pubchem.ts`) carry that signal through to the UI, which labels those values "Dự đoán" (predicted) instead of presenting them as settled fact — see the periodic table legend and each element's detail page. (`docs/adr/0001-tang-do-tin-cay-du-lieu.md`)
+PubChem itself sometimes can't state a value with certainty — a few superheavy elements have their standard state marked `"Expected to be a ..."` rather than measured, since too few atoms have ever been produced to observe a bulk phase. That uncertainty is carried through the data layer into the UI, which labels those values "predicted" instead of presenting them as settled fact (`docs/adr/0001-tang-do-tin-cay-du-lieu.md`).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  U[Học sinh / Học viên] --> N[Next.js App Router]
-  N -->|DB trước| P[(Postgres / Neon<br/>cache · aliases)]
-  N -->|fallback, token-bucket 4 req/s qua Postgres| C[PubChem PUG-REST]
-  P -.->|cron thứ 2 hàng tuần| C
-  N --> W[three.js / React Three Fiber<br/>fallback SVG 2D khi không có WebGL]
+  U[Student] --> N[Next.js App Router]
+  N -->|DB first| P[(Postgres / Neon<br/>cache · aliases)]
+  N -->|fallback, token bucket<br/>4 req/s via Postgres| C[PubChem PUG-REST]
+  P -.->|weekly cron| C
+  N --> W[three.js / React Three Fiber<br/>2D SVG fallback if no WebGL]
 ```
 
-## Số liệu đo được (trước / sau)
+## Measured results
 
-Kết quả đo thật trên nhánh này, không phải mục tiêu lý thuyết — lệnh kiểm chứng
-đi kèm để tái lập được.
+Real numbers from this branch, not targets — each row links the command that reproduces it.
 
-| Hạng mục | Trước | Sau | Lệnh kiểm chứng |
+| Metric | Before | After | Verify with |
 |---|---|---|---|
-| Lỗi 5xx trên URL surface | 14 | **0** | `npm run audit:urls` |
-| Lỗ hổng npm mức HIGH | 12 | **0** | `npm audit --audit-level=high` |
-| Alias tiếng Việt bị sập (500) | 14/39 | **0/40** | `npm run audit:urls` (số alias đã tăng lên 40) |
-| Test tự động (unit) | 0 | **294 PASS** | `npm run test` |
-| Test tự động (E2E) | 0 | **6/6 PASS** | `npm run test:e2e` |
-| Cân bằng phương trình đúng | — | **50/50** | `npm run test` (`equilibrium.test.ts`) |
-| Cấu hình electron đúng | — | **118/118** | `npm run test` (`electron-config-118.test.ts`, quét toàn bộ 118 nguyên tố với dữ liệu PubChem thật) |
-| Lighthouse Accessibility (cả 3 URL) | — | **100/100** | xem `docs/a11y.md` |
-| Lighthouse SEO (cả 3 URL) | — | **100/100** | `npx @lhci/cli autorun` |
-| Lighthouse Performance (trang có WebGL) | — | **46-80/100** (đo trên URL production thật 2026-08-17, dưới ngưỡng kế hoạch) | `lighthouse` nhắm vào URL "Live" ở trên — xem `docs/lighthouse.md` |
-| Tương phản màu (WCAG AA) | 3 cặp FAIL | **0/9 FAIL** | `python3 scripts/check-contrast.py` |
-| JS tải khi bật "Tiết kiệm" | — | **-41,9%** (đo trên URL production thật 2026-08-17) | xem `docs/a11y.md` §7 |
-| Nguồn dữ liệu tự chế | — | **0**\* | `grep -rn 'padStart(6, *"F")' src` |
-| Tham chiếu AI/LLM trong code | — | **0**\* | `grep -rniE "openai\|anthropic\|embedding\|langchain" package.json src` |
+| 5xx errors across the URL surface | 14 | **0** | `npm run audit:urls` |
+| HIGH-severity npm advisories | 12 | **0** | `npm audit --audit-level=high` |
+| Vietnamese-alias 500s | 14 / 39 | **0 / 40** | `npm run audit:urls` (alias count has since grown to 40) |
+| Unit tests | 0 | **294 passing** | `npm run test` |
+| E2E tests (Playwright) | 0 | **6 / 6 passing** | `npm run test:e2e` |
+| Equation balancing correctness | — | **50 / 50** | `npm run test` (`equilibrium.test.ts`) |
+| Electron configuration correctness | — | **118 / 118** | `npm run test` (`electron-config-118.test.ts`, checked against real PubChem data for every element) |
+| Lighthouse Accessibility (all 3 pages) | — | **100 / 100** | see `docs/a11y.md` |
+| Lighthouse SEO (all 3 pages) | — | **100 / 100** | `npx @lhci/cli autorun` |
+| Lighthouse Performance (WebGL pages) | — | **46–80 / 100** (measured against production, 2026-08-17 — below plan target) | `lighthouse` against the live URL above, see `docs/lighthouse.md` |
+| WCAG AA color contrast | 3 pairs failing | **0 / 9 failing** | `python3 scripts/check-contrast.py` |
+| JS shipped in data-saver mode | — | **−41.9%** (measured against production, 2026-08-17) | see `docs/a11y.md` §7 |
+| Fabricated data points | — | **0**\* | `grep -rn 'padStart(6, *"F")' src` |
+| AI/LLM references in application code | — | **0**\* | `grep -rniE "openai\|anthropic\|embedding\|langchain" package.json src` |
 
-\* Cả hai dòng có 1 kết quả khớp trong code, nhưng đó là comment mô tả/cấm
-đối tượng đó (`src/lib/pubchem.ts` giải thích vì sao *không* dùng
-`padStart(6, "F")`; `src/lib/search.ts` tuyên bố "KHÔNG dùng AI/embeddings") —
-không phải lệnh gọi thật.
+\* Both greps match a single line each, but it's a comment explaining why that pattern is *not* used (`src/lib/pubchem.ts` documents why `padStart(6, "F")` was rejected; `src/lib/search.ts` states plainly that it uses no AI/embeddings) — not a real occurrence.
 
 ## Stack
 
 - [Next.js](https://nextjs.org) 16 (App Router) + React 19
-- [`@react-three/fiber`](https://docs.pmnd.rs/react-three-fiber) / `drei` / `postprocessing` (three.js) for 3D scenes, with an SVG 2D orthographic-projection fallback when WebGL is unavailable
+- [`@react-three/fiber`](https://docs.pmnd.rs/react-three-fiber) / `drei` / `postprocessing` (three.js) for 3D, with an SVG orthographic fallback
 - Tailwind CSS 4
-- Drizzle ORM + `pg` targeting Postgres (via `DATABASE_URL`)
-- TypeScript 5.9 (strict mode)
-- Vitest (unit) + Playwright (E2E) + Lighthouse CI
+- Drizzle ORM + `pg` on Postgres (`DATABASE_URL`)
+- TypeScript 5.9, strict mode
+- Vitest, Playwright, Lighthouse CI
 
 ## Getting started
 
@@ -92,46 +97,32 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run typecheck` | Type-check without emitting |
 | `npm run test` | Run the unit test suite (Vitest) |
 | `npm run test:cov` | Run tests with coverage |
-| `npm run test:e2e` | Run the Playwright E2E suite (`tests/e2e/`) against a local server |
-| `npm run audit:urls` | Crawl the alias/compound/element URL surface, report 404s/5xx |
+| `npm run test:e2e` | Run the Playwright E2E suite against a local server |
+| `npm run audit:urls` | Crawl the alias/compound/element URL surface for 404s and 5xxs |
 | `npm run db:push` | Push the Drizzle schema to Postgres |
-| `npx tsx scripts/db-enable-extensions.ts` | One-time: enable `unaccent`/`pg_trgm` on a new Postgres (run before `db:push`) |
-| `npx tsx scripts/seed-compounds.ts` | Seed `compound_cache`/`compound_aliases` from the real PubChem API (see `docs/search.md`) |
-| `python3 scripts/check-contrast.py` | Verify every text/background color pair meets WCAG AA |
-| `npx @lhci/cli autorun` | Run Lighthouse CI against `/`, `/periodic-table`, `/compound/caffeine` (see `.lighthouserc.json`) |
+| `npx tsx scripts/db-enable-extensions.ts` | One-time: enable `unaccent`/`pg_trgm` on a fresh Postgres, before `db:push` |
+| `npx tsx scripts/seed-compounds.ts` | Seed the compound cache/aliases from the real PubChem API (`docs/search.md`) |
+| `python3 scripts/check-contrast.py` | Check every text/background color pair against WCAG AA |
+| `npx @lhci/cli autorun` | Run Lighthouse CI against `/`, `/periodic-table`, `/compound/caffeine` |
 
 ## Project structure
 
-- `src/app/` — routes:
-  - `/` (home), `/periodic-table` (periodic table), `/element/[symbol]` (element detail)
-  - `/compound` (3D compound viewer, SSR'd with a default compound) and `/compound/[name]` — real, indexable, shareable permalinks per compound (own metadata/canonical/OG image, `generateStaticParams` over the featured list)
-  - `/experiments` (lab hub/landing) plus dedicated routes per room: `/experiments/preparation` (dilution), `/experiments/titration` (titration), `/experiments/phase-change` (phase transition, with a P-T diagram via Clausius-Clapeyron), `/experiments/equilibrium` (equation balancing), `/experiments/electrochemical-cell` (galvanic cell via the Nernst equation) — each with its own metadata and code-split bundle
-  - `src/app/opengraph-image.tsx` / `src/app/compound/[name]/opengraph-image.tsx` — dynamically generated OG images (no static image asset to go stale/404)
-  - API routes under `src/app/api/*`
-- `src/components/three-d/` — three.js scene components (hero, compound scene, molecule mesh, 2D SVG fallback, toggleable Van der Waals surface shader and Angstrom/degree atom-click measurement tool, both lazy-loaded only after explicit user opt-in).
-- `src/components/periodic-table/`, `src/components/experiments/`, `src/components/compound/` — feature UI per route.
-- `src/lib/pubchem.ts` — PubChem PUG-REST client (the only source of chemistry data); also resolves CID-only queries and Vietnamese aliases (`src/lib/compound-alias.ts`) before hitting PubChem.
-- `src/lib/electron-config.ts` — noble-gas-notation electron shell expansion, used by `pubchem.ts`.
-- `src/lib/chemistry/` — pure chemistry math: titration (`titration.ts`), molar mass (`molar-mass.ts`), equation balancing via exact-rational Gauss-Jordan (`equilibrium.ts`), formula parsing (`parser-cong-thuc.ts`), reaction thermodynamics (`thermodynamics.ts` — ΔH°rxn/ΔG°rxn via Hess's law, served through `/api/thermodynamics` since it needs server-only network/secret access; see the file header for why Wikidata was tried and rejected as a data source, and why NIST WebBook and Materials Project each play a narrow, clearly-labeled role instead of one blended number), P-T phase diagrams (`gian-do-pha.ts` — Clausius-Clapeyron), electrochemistry (`nernst.ts`, `the-dien-cuc-chuan.ts` — galvanic-cell EMF via the Nernst equation over real standard-electrode-potential data).
-- `src/lib/element.ts` — element name/translation tables.
-- `src/lib/site.ts` — site metadata/nav.
-- `src/lib/featured-compounds.ts`, `src/lib/laboratory.ts`, `src/lib/slug.ts`, `src/lib/substance-identification.ts` — shared constants/helpers for the compound permalinks and lab rooms (see `docs/adr/0002-*` and `0003-*`).
-- `src/lib/search.ts` — Vietnamese diacritic-insensitive + typo-tolerant compound search over Postgres (`to_tsvector`/`pg_trgm`, no AI); `/api/suggestions` tries this first, falls back to PubChem autocomplete if the DB is unreachable or has no match. Also exposes `timCauTrucHoaHoc()` — substring match over SMILES/IUPAC/InChIKey plus an optional molecular-weight range, via `/api/search`, backed by trigram GIN indexes on `compound_cache`.
-- `src/lib/compound-sync.ts` — syncs `compound_cache`/`compound_aliases` from real PubChem data; shared by `scripts/seed-compounds.ts` (manual) and `/api/cron/sync` (scheduled, see `vercel.json`).
-- `src/app/admin/missing-keywords/` — token-gated (`QUAN_TRI_TOKEN`) dashboard of search queries with no results, to grow `ALIAS_HOP_CHAT` from real usage instead of guessing.
-- `src/db/schema.ts` — Drizzle schema for the internal search/cache layer (see `docs/search.md`).
-- `docs/adr/` — architecture decision records for the non-obvious calls (data-confidence tiers, ASCII slug normalization, the education whitelist, exact-rational equation balancing).
-- `tests/unit/` (Vitest) and `tests/e2e/` (Playwright) — see the metrics table above for current pass counts.
+- **`src/app/`** — routes: home, periodic table, element detail; `/compound` and `/compound/[name]` for the 3D viewer (SSR'd, own metadata/canonical/OG image); `/experiments` hub plus one route per lab room; dynamic OG image generation so nothing goes stale; API routes under `src/app/api/*`
+- **`src/components/three-d/`** — the 3D scene: hero, compound viewer, molecule mesh, 2D fallback, the Van der Waals shader and Angstrom/degree measurement tool (both lazy-loaded behind an explicit opt-in)
+- **`src/components/`** — periodic table, experiments, and compound-viewer UI, grouped per feature
+- **`src/lib/pubchem/`** — the only source of chemistry data: PubChem PUG-REST client, split by domain (`core`, `elements`, `compounds`, `conformers`, `suggestions`), plus alias resolution before hitting PubChem
+- **`src/lib/chemistry/`** — pure chemistry math: titration, molar mass, exact-rational equation balancing, formula parsing, reaction thermodynamics (Hess's law), P–T phase diagrams (Clausius–Clapeyron), electrochemistry (Nernst equation over real standard-electrode-potential data)
+- **`src/lib/search.ts`** — diacritic-insensitive, typo-tolerant compound search over Postgres (`to_tsvector` + `pg_trgm`, no AI), with a PubChem-autocomplete fallback
+- **`src/db/schema.ts`** — Drizzle schema for the cache/search layer
+- **`docs/adr/`** — architecture decision records for the calls that aren't obvious from the code
+- **`tests/unit/`** (Vitest) and **`tests/e2e/`** (Playwright) — see the metrics table above for current pass counts
 
 ## Deployment
 
-Hosted on [Vercel](https://vercel.com) (Hobby tier) with a [Neon](https://neon.tech) Postgres database. Pushes to `master` auto-deploy. `vercel.json` schedules a weekly `/api/cron/sync` re-sync; set `CRON_SECRET` so only Vercel Cron (or someone who knows the secret) can trigger it.
+Hosted on [Vercel](https://vercel.com) (Hobby tier) with [Neon](https://neon.tech) Postgres. Pushes to `master` auto-deploy. A weekly cron job (`vercel.json`) re-syncs the compound cache; `CRON_SECRET` gates it so only Vercel Cron can trigger it.
 
 ## License
 
-Code: MIT (see `LICENSE`).
+Code: MIT (`LICENSE`).
 
-**The chemistry data is not this project's copyright.** All element and compound
-values are sourced from [PubChem](https://pubchem.ncbi.nlm.nih.gov) (NCBI/NIH) —
-data in the public domain of the U.S. government. KAGAKU does not modify,
-interpolate, or add any measured values of its own.
+**The chemistry data itself isn't this project's to license.** Every element and compound value comes from [PubChem](https://pubchem.ncbi.nlm.nih.gov) (NCBI/NIH), U.S. government public-domain data. KAGAKU doesn't modify, interpolate, or add measured values of its own.
